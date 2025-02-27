@@ -554,113 +554,114 @@ window.addEventListener('DOMContentLoaded', () => {
     // Создаем глобальный массив для хранения экземпляров галереи
     window.circularGalleries = [];
     
-    // Находим все canvas с атрибутом data-gallery="container"
-    const canvases = document.querySelectorAll('canvas[data-gallery="container"]');
-    
-    canvases.forEach(canvas => {
-        const gallery = new CircularGallery(canvas);
+    // Функция инициализации галереи
+    function initializeGallery() {
+        console.log('Initializing circular gallery...');
         
-        // Сохраняем экземпляр в глобальный массив
-        window.circularGalleries.push(gallery);
+        // Находим все canvas с атрибутом data-gallery="container"
+        const canvases = document.querySelectorAll('canvas[data-gallery="container"]');
         
-        // Проверяем, нужно ли создавать контроллер (по умолчанию скрыты)
-        const showControls = canvas.getAttribute('data-show-controls') === 'true';
-        if (showControls) {
-            new GalleryController(gallery);
+        if (canvases.length === 0) {
+            console.log('No gallery canvases found yet.');
+            return false;
         }
         
-        // Добавляем обработчик события для смены изображения
-        canvas.addEventListener('galleryImageChange', (event) => {
-            if (event.detail && event.detail.imageUrl) {
-                const img = new Image();
-                img.crossOrigin = "anonymous";
-                img.onload = () => {
-                    gallery.updateImage(img);
-                };
-                img.src = event.detail.imageUrl;
-            }
-        });
-    });
-    
-    // Проверяем наличие изображений в атрибутах data-gallery="image"
-    setTimeout(() => {
+        // Проверяем наличие изображений в атрибутах data-gallery="image"
         const galleryImages = document.querySelectorAll('[data-gallery="image"]');
-        if (galleryImages.length > 0 && canvases.length > 0) {
-            // Берем первое изображение и устанавливаем его в первый canvas
-            const firstCanvas = canvases[0];
-            const firstGallery = window.circularGalleries[0];
+        console.log('Found gallery images:', galleryImages.length);
+        
+        canvases.forEach(canvas => {
+            // Проверяем, не был ли этот canvas уже инициализирован
+            if (canvas.hasAttribute('data-gallery-initialized')) {
+                return;
+            }
             
-            if (firstGallery && galleryImages[0].src) {
-                const img = new Image();
-                img.crossOrigin = "anonymous";
-                img.onload = () => {
-                    firstGallery.updateImage(img);
-                };
-                img.src = galleryImages[0].src;
+            const gallery = new CircularGallery(canvas);
+            
+            // Отмечаем canvas как инициализированный
+            canvas.setAttribute('data-gallery-initialized', 'true');
+            
+            // Сохраняем экземпляр в глобальный массив
+            window.circularGalleries.push(gallery);
+            
+            // Проверяем, нужно ли создавать контроллер (по умолчанию скрыты)
+            const showControls = canvas.getAttribute('data-show-controls') === 'true';
+            if (showControls) {
+                new GalleryController(gallery);
             }
-        }
-    }, 500); // Небольшая задержка для уверенности, что все элементы загружены
+            
+            // Добавляем обработчик события для смены изображения
+            canvas.addEventListener('galleryImageChange', (event) => {
+                if (event.detail && event.detail.imageUrl) {
+                    const img = new Image();
+                    img.crossOrigin = "anonymous";
+                    img.onload = () => {
+                        gallery.updateImage(img);
+                    };
+                    img.src = event.detail.imageUrl;
+                }
+            });
+        });
+        
+        return true;
+    }
     
-    // Функция для инициализации Swiper с кастомными классами
-    window.initSwiperGallery = function(swiperSelector, options = {}) {
-        // Проверяем наличие Swiper
-        if (typeof Swiper === 'undefined') {
-            console.error('Swiper is not loaded. Please include Swiper.js in your project.');
-            return null;
-        }
+    // Пробуем инициализировать сразу
+    let initialized = initializeGallery();
+    
+    // Если не удалось инициализировать сразу, используем MutationObserver
+    if (!initialized) {
+        console.log('Setting up MutationObserver to detect CMS elements...');
         
-        // Настройки по умолчанию
-        const defaultOptions = {
-            wrapperClass: 'swiper-cover_wrapper',
-            slideClass: 'swiper-cover_slide',
-            slidesPerView: 1,
-            spaceBetween: 0,
-            loop: true,
-            effect: 'fade',
-            navigation: {
-                nextEl: '.swiper-button-next',
-                prevEl: '.swiper-button-prev',
-            },
-            pagination: {
-                el: '.swiper-pagination',
-                clickable: true,
-            }
-        };
-        
-        // Объединяем настройки
-        const swiperOptions = {...defaultOptions, ...options};
-        
-        // Добавляем обработчик события смены слайда
-        swiperOptions.on = {
-            ...swiperOptions.on,
-            slideChange: function() {
-                // Находим canvas для WebGL
-                const canvas = document.querySelector('canvas[data-gallery="container"]');
-                if (!canvas) return;
-                
-                // Находим активный слайд и изображение в нем
-                const activeSlide = this.slides[this.activeIndex];
-                const img = activeSlide.querySelector('[data-gallery="image"]');
-                
-                if (canvas && img) {
-                    // Вызываем событие изменения для обновления WebGL
-                    const event = new CustomEvent('galleryImageChange', {
-                        detail: { imageUrl: img.src }
+        // Создаем MutationObserver для отслеживания изменений в DOM
+        const observer = new MutationObserver((mutations) => {
+            let shouldCheck = false;
+            
+            mutations.forEach((mutation) => {
+                if (mutation.addedNodes.length) {
+                    // Проверяем, добавлены ли интересующие нас элементы
+                    mutation.addedNodes.forEach(node => {
+                        if (node.nodeType === 1) { // Только элементы (не текстовые узлы)
+                            if (node.hasAttribute && 
+                                (node.hasAttribute('data-gallery') || 
+                                 node.querySelector('[data-gallery]'))) {
+                                shouldCheck = true;
+                            }
+                        }
                     });
-                    canvas.dispatchEvent(event);
+                }
+            });
+            
+            if (shouldCheck) {
+                console.log('Detected new gallery elements, attempting initialization...');
+                initialized = initializeGallery();
+                
+                // Если инициализация прошла успешно, отключаем observer
+                if (initialized) {
+                    console.log('Gallery successfully initialized, disconnecting observer.');
+                    observer.disconnect();
                 }
             }
-        };
+        });
         
-        // Инициализируем Swiper
-        return new Swiper(swiperSelector, swiperOptions);
-    };
-    
-    // Автоматически инициализируем Swiper, если он есть на странице
-    setTimeout(() => {
-        const swiperElement = document.querySelector('[data-gallery="swiper"]');
-        if (swiperElement && typeof Swiper !== 'undefined') {
-            window.initSwiperGallery('[data-gallery="swiper"]');
-        }
-    }, 700);
+        // Запускаем наблюдение за всем документом
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+        
+        // Дополнительно пробуем инициализировать через некоторое время
+        // на случай, если MutationObserver не сработает
+        setTimeout(() => {
+            if (!initialized) {
+                console.log('Attempting delayed initialization...');
+                initialized = initializeGallery();
+                
+                if (initialized) {
+                    console.log('Delayed initialization successful, disconnecting observer.');
+                    observer.disconnect();
+                }
+            }
+        }, 1500);
+    }
 }); 
