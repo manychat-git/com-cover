@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Circular Gallery Test</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
     <style>
         body {
             margin: 0;
@@ -28,11 +29,75 @@
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            position: relative;
         }
         canvas {
             width: 100%;
             height: 100%;
             display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+        }
+        
+        /* Стили для Swiper с кастомными классами */
+        .swiper-cover {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        .swiper-cover_wrapper {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            transition-property: transform;
+            box-sizing: content-box;
+        }
+        .swiper-cover_slide {
+            flex-shrink: 0;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        
+        /* Стили для навигации */
+        .swiper-button-next,
+        .swiper-button-prev {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10;
+            cursor: pointer;
+            color: white;
+        }
+        .swiper-pagination {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            z-index: 10;
+        }
+        .swiper-pagination-bullet {
+            background: white;
+            opacity: 0.5;
+        }
+        .swiper-pagination-bullet-active {
+            opacity: 1;
+        }
+        
+        /* Добавляем стиль для отладки */
+        .debug-info {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 1000;
         }
     </style>
 </head>
@@ -41,12 +106,115 @@
         <h1>Circular Gallery Test</h1>
         
         <div class="gallery-container">
-            <!-- Используем атрибут data-gallery="container" вместо класса -->
-            <canvas data-gallery="container" data-default-image="assets/img1.jpg" data-show-controls="false"></canvas>
+            <!-- Swiper с кастомными классами -->
+            <div class="swiper-cover" data-gallery="swiper">
+                <div class="swiper-cover_wrapper">
+                    <!-- Слайды -->
+                    <div class="swiper-cover_slide">
+                        <img src="assets/img1.jpg" data-gallery="image" style="display: none;">
+                    </div>
+                    <div class="swiper-cover_slide">
+                        <img src="assets/img2.jpg" data-gallery="image" style="display: none;">
+                    </div>
+                    <div class="swiper-cover_slide">
+                        <img src="assets/img3.jpg" data-gallery="image" style="display: none;">
+                    </div>
+                    <div class="swiper-cover_slide">
+                        <img src="assets/img4.jpg" data-gallery="image" style="display: none;">
+                    </div>
+                    <div class="swiper-cover_slide">
+                        <img src="assets/img5.jpg" data-gallery="image" style="display: none;">
+                    </div>
+                </div>
+                
+                <!-- Навигация -->
+                <div class="swiper-button-prev"></div>
+                <div class="swiper-button-next"></div>
+                <div class="swiper-pagination"></div>
+            </div>
+            
+            <!-- Canvas для WebGL эффектов -->
+            <canvas data-gallery="container" data-default-image="assets/img1.jpg" data-show-controls="true"></canvas>
         </div>
     </div>
+    
+    <!-- Отладочная информация -->
+    <div class="debug-info"></div>
 
-    <!-- Подключаем локальный скрипт -->
-    <script src="https://cdn.jsdelivr.net/gh/manychat-git/com-cover@v1.1.0/webflow-circular-gallery.js"></script>
+    <!-- Подключаем скрипты -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="webflow-circular-gallery.js"></script>
+    
+    <!-- Инициализация Swiper -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const debugInfo = document.querySelector('.debug-info');
+            
+            // Проверяем загрузку изображений
+            const images = document.querySelectorAll('[data-gallery="image"]');
+            images.forEach((img, index) => {
+                img.onload = function() {
+                    debugInfo.innerHTML += `Изображение ${index+1} загружено: ${img.src}<br>`;
+                };
+                img.onerror = function() {
+                    debugInfo.innerHTML += `Ошибка загрузки изображения ${index+1}: ${img.src}<br>`;
+                };
+            });
+            
+            // Инициализация Swiper с кастомными классами
+            const swiper = new Swiper('[data-gallery="swiper"]', {
+                // Указываем кастомные классы
+                wrapperClass: 'swiper-cover_wrapper',
+                slideClass: 'swiper-cover_slide',
+                
+                // Основные параметры
+                slidesPerView: 1,
+                spaceBetween: 0,
+                loop: true,
+                effect: 'fade',
+                
+                // Навигация
+                navigation: {
+                    nextEl: '.swiper-button-next',
+                    prevEl: '.swiper-button-prev',
+                },
+                
+                // Пагинация
+                pagination: {
+                    el: '.swiper-pagination',
+                    clickable: true,
+                },
+                
+                // События
+                on: {
+                    init: function() {
+                        debugInfo.innerHTML += 'Swiper инициализирован<br>';
+                    },
+                    slideChange: function() {
+                        // При смене слайда меняем изображение в WebGL-галерее
+                        const canvas = document.querySelector('[data-gallery="container"]');
+                        const activeSlide = this.slides[this.activeIndex];
+                        const img = activeSlide.querySelector('[data-gallery="image"]');
+                        
+                        if (canvas && img) {
+                            debugInfo.innerHTML += `Смена слайда на ${this.activeIndex}, изображение: ${img.src}<br>`;
+                            
+                            // Вызываем событие изменения для обновления WebGL
+                            const event = new CustomEvent('galleryImageChange', {
+                                detail: { imageUrl: img.src }
+                            });
+                            canvas.dispatchEvent(event);
+                        }
+                    }
+                }
+            });
+            
+            // Проверяем инициализацию WebGL
+            const canvas = document.querySelector('[data-gallery="container"]');
+            if (canvas) {
+                debugInfo.innerHTML += `Canvas найден, data-default-image: ${canvas.getAttribute('data-default-image')}<br>`;
+            }
+        });
+    </script>
 </body>
 </html> 

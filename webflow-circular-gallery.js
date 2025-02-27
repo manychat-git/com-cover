@@ -551,16 +551,116 @@ class GalleryController {
 
 // Инициализация при загрузке страницы
 window.addEventListener('DOMContentLoaded', () => {
+    // Создаем глобальный массив для хранения экземпляров галереи
+    window.circularGalleries = [];
+    
     // Находим все canvas с атрибутом data-gallery="container"
     const canvases = document.querySelectorAll('canvas[data-gallery="container"]');
     
     canvases.forEach(canvas => {
         const gallery = new CircularGallery(canvas);
         
+        // Сохраняем экземпляр в глобальный массив
+        window.circularGalleries.push(gallery);
+        
         // Проверяем, нужно ли создавать контроллер (по умолчанию скрыты)
         const showControls = canvas.getAttribute('data-show-controls') === 'true';
         if (showControls) {
             new GalleryController(gallery);
         }
+        
+        // Добавляем обработчик события для смены изображения
+        canvas.addEventListener('galleryImageChange', (event) => {
+            if (event.detail && event.detail.imageUrl) {
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => {
+                    gallery.updateImage(img);
+                };
+                img.src = event.detail.imageUrl;
+            }
+        });
     });
+    
+    // Проверяем наличие изображений в атрибутах data-gallery="image"
+    setTimeout(() => {
+        const galleryImages = document.querySelectorAll('[data-gallery="image"]');
+        if (galleryImages.length > 0 && canvases.length > 0) {
+            // Берем первое изображение и устанавливаем его в первый canvas
+            const firstCanvas = canvases[0];
+            const firstGallery = window.circularGalleries[0];
+            
+            if (firstGallery && galleryImages[0].src) {
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => {
+                    firstGallery.updateImage(img);
+                };
+                img.src = galleryImages[0].src;
+            }
+        }
+    }, 500); // Небольшая задержка для уверенности, что все элементы загружены
+    
+    // Функция для инициализации Swiper с кастомными классами
+    window.initSwiperGallery = function(swiperSelector, options = {}) {
+        // Проверяем наличие Swiper
+        if (typeof Swiper === 'undefined') {
+            console.error('Swiper is not loaded. Please include Swiper.js in your project.');
+            return null;
+        }
+        
+        // Настройки по умолчанию
+        const defaultOptions = {
+            wrapperClass: 'swiper-cover_wrapper',
+            slideClass: 'swiper-cover_slide',
+            slidesPerView: 1,
+            spaceBetween: 0,
+            loop: true,
+            effect: 'fade',
+            navigation: {
+                nextEl: '.swiper-button-next',
+                prevEl: '.swiper-button-prev',
+            },
+            pagination: {
+                el: '.swiper-pagination',
+                clickable: true,
+            }
+        };
+        
+        // Объединяем настройки
+        const swiperOptions = {...defaultOptions, ...options};
+        
+        // Добавляем обработчик события смены слайда
+        swiperOptions.on = {
+            ...swiperOptions.on,
+            slideChange: function() {
+                // Находим canvas для WebGL
+                const canvas = document.querySelector('canvas[data-gallery="container"]');
+                if (!canvas) return;
+                
+                // Находим активный слайд и изображение в нем
+                const activeSlide = this.slides[this.activeIndex];
+                const img = activeSlide.querySelector('[data-gallery="image"]');
+                
+                if (canvas && img) {
+                    // Вызываем событие изменения для обновления WebGL
+                    const event = new CustomEvent('galleryImageChange', {
+                        detail: { imageUrl: img.src }
+                    });
+                    canvas.dispatchEvent(event);
+                }
+            }
+        };
+        
+        // Инициализируем Swiper
+        return new Swiper(swiperSelector, swiperOptions);
+    };
+    
+    // Автоматически инициализируем Swiper, если он есть на странице
+    setTimeout(() => {
+        const swiperElement = document.querySelector('[data-gallery="swiper"]');
+        if (swiperElement && typeof Swiper !== 'undefined') {
+            window.initSwiperGallery('[data-gallery="swiper"]');
+        }
+    }, 700);
 }); 
