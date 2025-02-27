@@ -35,10 +35,28 @@ An interactive WebGL-based image viewer with chromatic aberration and distortion
 
 ## Local Development
 
+### Standard Method
+
 1. Clone the repository
 2. Open the project directory
 3. Start a local server (e.g., using `python -m http.server 8081` or any other static file server)
 4. Open `http://localhost:8081/test-local.html` in your browser
+
+### Development with Auto-Reload (Recommended)
+
+This method allows you to see changes immediately without manually refreshing the page:
+
+1. Clone the repository
+2. Install dependencies:
+   ```
+   npm install
+   ```
+3. Start the development server:
+   ```
+   npm start
+   ```
+4. Open `http://localhost:8081/test-local.html` in your browser
+5. Edit `webflow-circular-gallery.js` or `test-local.html` - the page will automatically reload when you save changes
 
 ## Technologies Used
 
