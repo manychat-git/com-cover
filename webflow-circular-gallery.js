@@ -638,17 +638,14 @@ window.addEventListener('DOMContentLoaded', () => {
                 const canvas = document.querySelector('canvas[data-gallery="container"]');
                 if (!canvas) return;
                 
-                // Находим активный слайд, используя realIndex для игнорирования дубликатов
-                const activeSlide = this.slides[this.realIndex];
+                // Находим активный слайд и изображение в нем
+                const activeSlide = this.slides[this.activeIndex];
+                const img = activeSlide.querySelector('[data-gallery="image"]');
                 
-                // Используем data-gallery-img вместо стандартного querySelector
-                const imgKey = activeSlide.getAttribute('data-gallery-img');
-                const imgElement = document.querySelector(`[data-gallery-img="${imgKey}"]`);
-                
-                if (canvas && imgElement) {
+                if (canvas && img) {
                     // Вызываем событие изменения для обновления WebGL
                     const event = new CustomEvent('galleryImageChange', {
-                        detail: { imageUrl: imgElement.src }
+                        detail: { imageUrl: img.src }
                     });
                     canvas.dispatchEvent(event);
                 }
