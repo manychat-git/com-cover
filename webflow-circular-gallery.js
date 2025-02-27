@@ -168,14 +168,35 @@ class CircularGallery {
 
         this.currentImage = null;
         this.defaultImageUrl = defaultImageUrl || null;
+        this.isAnimating = false;
+        this.textureLoaded = false;
         this.initWebGL();
         this.loadImage();
     }
 
     updateImage(newImage) {
+        console.log('Updating image in WebGL:', newImage.src);
         this.currentImage = newImage;
+        this.textureLoaded = false; // Reset texture loaded flag
+        
+        // Force a complete texture reload
+        this.gl.deleteTexture(this.texture);
+        this.texture = this.gl.createTexture();
         this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+        
+        // Load the new image into the texture
         this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, newImage);
+        this.textureLoaded = true;
+        
+        // Restart animation if needed
+        if (!this.isAnimating) {
+            this.startTime = performance.now();
+            this.animate();
+        }
     }
 
     async loadImage() {
@@ -297,7 +318,7 @@ class CircularGallery {
         this.gl.clearColor(0, 0, 0, 1);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
 
-        if (!this.currentImage) return;
+        if (!this.currentImage || !this.textureLoaded) return;
 
         // Use shader program
         this.gl.useProgram(this.program);
@@ -318,13 +339,13 @@ class CircularGallery {
 
         // Update texture
         this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
-        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, this.currentImage);
-
+        
         // Draw
         this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
     }
 
     animate(time) {
+        this.isAnimating = true;
         this.render(time);
         requestAnimationFrame(this.animate.bind(this));
     }
@@ -551,11 +572,14 @@ class GalleryController {
 
 // Инициализация при загрузке страницы
 window.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM Content Loaded - Initializing Circular Gallery');
+    
     // Создаем глобальный массив для хранения экземпляров галереи
     window.circularGalleries = [];
     
     // Находим все canvas с атрибутом data-gallery="container"
     const canvases = document.querySelectorAll('canvas[data-gallery="container"]');
+    console.log('Found canvas elements:', canvases.length);
     
     canvases.forEach(canvas => {
         const gallery = new CircularGallery(canvas);
@@ -571,30 +595,66 @@ window.addEventListener('DOMContentLoaded', () => {
         
         // Добавляем обработчик события для смены изображения
         canvas.addEventListener('galleryImageChange', (event) => {
+            console.log('Gallery image change event received:', event.detail);
             if (event.detail && event.detail.imageUrl) {
                 const img = new Image();
                 img.crossOrigin = "anonymous";
                 img.onload = () => {
+                    console.log('New image loaded successfully, updating gallery:', img.src);
                     gallery.updateImage(img);
+                };
+                img.onerror = () => {
+                    console.error('Failed to load new image:', event.detail.imageUrl);
                 };
                 img.src = event.detail.imageUrl;
             }
         });
     });
     
+    // Добавляем глобальную функцию для ручного обновления галереи
+    window.updateCircularGallery = function(imageUrl) {
+        if (!window.circularGalleries || window.circularGalleries.length === 0) {
+            console.error('No circular galleries initialized');
+            return;
+        }
+        
+        const gallery = window.circularGalleries[0];
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+            console.log('Manually updating gallery with image:', img.src);
+            gallery.updateImage(img);
+        };
+        img.onerror = () => {
+            console.error('Failed to load image for manual update:', imageUrl);
+        };
+        img.src = imageUrl;
+    };
+    
     // Проверяем наличие изображений в атрибутах data-gallery="image"
     setTimeout(() => {
         const galleryImages = document.querySelectorAll('[data-gallery="image"]');
+        console.log('Found gallery images:', galleryImages.length);
+        
         if (galleryImages.length > 0 && canvases.length > 0) {
             // Берем первое изображение и устанавливаем его в первый canvas
             const firstCanvas = canvases[0];
             const firstGallery = window.circularGalleries[0];
             
             if (firstGallery && galleryImages[0].src) {
+                console.log('Setting initial image from gallery images:', galleryImages[0].src);
+                
+                // Устанавливаем data-default-image атрибут для canvas
+                firstCanvas.setAttribute('data-default-image', galleryImages[0].src);
+                
                 const img = new Image();
                 img.crossOrigin = "anonymous";
                 img.onload = () => {
+                    console.log('Initial image loaded, updating gallery');
                     firstGallery.updateImage(img);
+                };
+                img.onerror = () => {
+                    console.error('Failed to load initial image:', galleryImages[0].src);
                 };
                 img.src = galleryImages[0].src;
             }
@@ -617,6 +677,7 @@ window.addEventListener('DOMContentLoaded', () => {
             spaceBetween: 0,
             loop: true,
             effect: 'fade',
+            speed: 500, // Скорость анимации
             navigation: {
                 nextEl: '.swiper-button-next',
                 prevEl: '.swiper-button-prev',
@@ -633,22 +694,84 @@ window.addEventListener('DOMContentLoaded', () => {
         // Добавляем обработчик события смены слайда
         swiperOptions.on = {
             ...swiperOptions.on,
+            init: function() {
+                console.log('Swiper initialized');
+                
+                // Устанавливаем начальное изображение
+                const canvas = document.querySelector('canvas[data-gallery="container"]');
+                if (!canvas) {
+                    console.error('Canvas element not found during Swiper init');
+                    return;
+                }
+                
+                const activeSlide = this.slides[this.activeIndex];
+                const img = activeSlide.querySelector('[data-gallery="image"]');
+                
+                if (img) {
+                    console.log('Setting initial image from Swiper:', img.src);
+                    
+                    // Устанавливаем data-default-image атрибут для canvas
+                    canvas.setAttribute('data-default-image', img.src);
+                    
+                    // Если галерея уже инициализирована, обновляем изображение
+                    if (window.circularGalleries && window.circularGalleries.length > 0) {
+                        const gallery = window.circularGalleries[0];
+                        
+                        const newImg = new Image();
+                        newImg.crossOrigin = "anonymous";
+                        newImg.onload = () => {
+                            console.log('Initial image loaded from Swiper, updating gallery');
+                            gallery.updateImage(newImg);
+                        };
+                        newImg.onerror = () => {
+                            console.error('Failed to load initial image from Swiper:', img.src);
+                        };
+                        newImg.src = img.src;
+                    }
+                }
+            },
             slideChange: function() {
+                console.log('Swiper slide changed to index:', this.activeIndex);
+                
                 // Находим canvas для WebGL
                 const canvas = document.querySelector('canvas[data-gallery="container"]');
-                if (!canvas) return;
+                if (!canvas) {
+                    console.error('Canvas element not found');
+                    return;
+                }
                 
                 // Находим активный слайд и изображение в нем
                 const activeSlide = this.slides[this.activeIndex];
                 const img = activeSlide.querySelector('[data-gallery="image"]');
                 
-                if (canvas && img) {
-                    // Вызываем событие изменения для обновления WebGL
-                    const event = new CustomEvent('galleryImageChange', {
-                        detail: { imageUrl: img.src }
-                    });
-                    canvas.dispatchEvent(event);
+                if (!img) {
+                    console.error('Image not found in active slide');
+                    return;
                 }
+                
+                console.log('Slide changed, updating image:', img.src);
+                
+                // Прямое обновление галереи (более надежный способ)
+                if (window.circularGalleries && window.circularGalleries.length > 0) {
+                    const gallery = window.circularGalleries[0];
+                    
+                    const newImg = new Image();
+                    newImg.crossOrigin = "anonymous";
+                    newImg.onload = () => {
+                        console.log('New slide image loaded, directly updating gallery');
+                        gallery.updateImage(newImg);
+                    };
+                    newImg.onerror = () => {
+                        console.error('Failed to load new slide image:', img.src);
+                    };
+                    newImg.src = img.src;
+                }
+                
+                // Также вызываем событие для совместимости
+                const event = new CustomEvent('galleryImageChange', {
+                    detail: { imageUrl: img.src }
+                });
+                canvas.dispatchEvent(event);
             }
         };
         
@@ -660,7 +783,20 @@ window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         const swiperElement = document.querySelector('[data-gallery="swiper"]');
         if (swiperElement && typeof Swiper !== 'undefined') {
-            window.initSwiperGallery('[data-gallery="swiper"]');
+            console.log('Initializing Swiper');
+            window.swiperInstance = window.initSwiperGallery('[data-gallery="swiper"]');
         }
     }, 700);
-}); 
+});
+
+// Добавляем обработчик для случая, когда DOM уже загружен
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    console.log('Document already loaded, initializing manually');
+    
+    // Проверяем, инициализирована ли уже галерея
+    if (!window.circularGalleries || window.circularGalleries.length === 0) {
+        // Вызываем инициализацию вручную
+        const event = new Event('DOMContentLoaded');
+        window.dispatchEvent(event);
+    }
+} 
