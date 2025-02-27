@@ -664,4 +664,96 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         }, 1500);
     }
+    
+    // Инициализация Swiper для галереи
+    function initializeSwiperGallery() {
+        console.log('[DEBUG] Swiper Image Debugger Initialized');
+        
+        function setDefaultImage() {
+            const firstImage = document.querySelector('[data-gallery="image"]');
+            const canvas = document.querySelector('[data-gallery="container"]');
+
+            if (canvas && firstImage) {
+                console.log('Setting default image:', firstImage.src);
+                canvas.setAttribute('data-default-image', firstImage.src);
+
+                const event = new CustomEvent('galleryImageChange', {
+                    detail: { imageUrl: firstImage.src }
+                });
+                canvas.dispatchEvent(event);
+            }
+        }
+
+        // Проверяем наличие Swiper
+        if (typeof Swiper === 'undefined') {
+            console.error('Swiper is not loaded. Please include Swiper.js in your project.');
+            // Все равно устанавливаем дефолтное изображение
+            setDefaultImage();
+            return;
+        }
+
+        // Проверяем наличие элемента Swiper
+        const swiperElement = document.querySelector('[data-gallery="swiper"]');
+        if (!swiperElement) {
+            console.log('No Swiper element found with [data-gallery="swiper"] attribute.');
+            // Все равно устанавливаем дефолтное изображение
+            setDefaultImage();
+            return;
+        }
+
+        setDefaultImage();
+
+        try {
+            const swiper = new Swiper('[data-gallery="swiper"]', {
+                wrapperClass: 'swiper-cover_wrapper',
+                slideClass: 'swiper-cover_slide',
+                
+                slidesPerView: 1,
+                spaceBetween: 0,
+                loop: true,
+                effect: 'fade',
+                
+                navigation: {
+                    nextEl: '[data-gallery="next"]',
+                    prevEl: '[data-gallery="prev"]'
+                },
+                
+                pagination: {
+                    el: '.swiper-pagination',
+                    clickable: true,
+                },
+                
+                on: {
+                    init: function() {
+                        setDefaultImage();
+                    },
+                    
+                    slideChange: function() {
+                        const canvas = document.querySelector('[data-gallery="container"]');
+                        const activeSlide = this.slides[this.realIndex]; // Используем realIndex
+                        const img = activeSlide.querySelector('[data-gallery="image"]');
+
+                        if (canvas && img) {
+                            console.log('Slide changed, updating image:', img.src);
+                            
+                            const event = new CustomEvent('galleryImageChange', {
+                                detail: { imageUrl: img.src }
+                            });
+                            canvas.dispatchEvent(event);
+                        }
+                    }
+                }
+            });
+            
+            console.log('Swiper initialized successfully');
+            window.gallerySwiper = swiper; // Сохраняем экземпляр в глобальную переменную
+        } catch (error) {
+            console.error('Error initializing Swiper:', error);
+            // Все равно устанавливаем дефолтное изображение
+            setDefaultImage();
+        }
+    }
+    
+    // Инициализируем Swiper с небольшой задержкой после инициализации галереи
+    setTimeout(initializeSwiperGallery, 500);
 }); 
