@@ -711,6 +711,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 slidesPerView: 1,
                 spaceBetween: 0,
                 loop: true,
+                effect: "fade",
                 fadeEffect: { crossFade: true } ,
                 
                 navigation: {
