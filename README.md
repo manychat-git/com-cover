@@ -10,6 +10,28 @@ An interactive WebGL-based image viewer with chromatic aberration and distortion
 - Interactive UI controls
 - Responsive design
 
+## Webflow Integration
+
+### Quick Start
+
+1. Add a container element in Webflow with your desired dimensions
+2. Add a Canvas element inside the container
+3. Add the class `circular-gallery` to the Canvas element
+4. Add a custom attribute `data-default-image` with the URL of your default image
+5. Add a custom attribute `data-show-controls` with value `true` or `false`
+6. Add an Embed element at the end of your page with this script:
+
+```html
+<script src="https://cdn.jsdelivr.net/gh/manychat-git/com-cover@v1.0.0/webflow-circular-gallery.js"></script>
+```
+
+### Example
+
+```html
+<div class="gallery-container" style="width: 100%; height: 500px;">
+  <canvas class="circular-gallery" data-default-image="https://example.com/your-image.jpg" data-show-controls="true"></canvas>
+</div>
+```
 
 ## Local Development
 
