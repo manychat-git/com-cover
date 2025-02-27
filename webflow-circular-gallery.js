@@ -551,13 +551,13 @@ class GalleryController {
 
 // Инициализация при загрузке страницы
 window.addEventListener('DOMContentLoaded', () => {
-    // Находим все canvas с классом 'circular-gallery'
-    const canvases = document.querySelectorAll('canvas.circular-gallery');
+    // Находим все canvas с атрибутом data-gallery="container"
+    const canvases = document.querySelectorAll('canvas[data-gallery="container"]');
     
     canvases.forEach(canvas => {
         const gallery = new CircularGallery(canvas);
         
-        // Проверяем, нужно ли создавать контроллер
+        // Проверяем, нужно ли создавать контроллер (по умолчанию скрыты)
         const showControls = canvas.getAttribute('data-show-controls') === 'true';
         if (showControls) {
             new GalleryController(gallery);

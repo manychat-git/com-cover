@@ -29,7 +29,7 @@
             overflow: hidden;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
-        canvas.circular-gallery {
+        canvas {
             width: 100%;
             height: 100%;
             display: block;
@@ -41,8 +41,8 @@
         <h1>Circular Gallery Test</h1>
         
         <div class="gallery-container">
-            <!-- Используем локальное изображение из папки assets -->
-            <canvas class="circular-gallery" data-default-image="assets/img1.jpg" data-show-controls="true"></canvas>
+            <!-- Используем атрибут data-gallery="container" вместо класса -->
+            <canvas data-gallery="container" data-default-image="assets/img1.jpg" data-show-controls="false"></canvas>
         </div>
     </div>
 
