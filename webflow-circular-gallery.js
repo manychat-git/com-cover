@@ -17,6 +17,7 @@ precision highp float;
 uniform float uTime;
 uniform vec2 uResolution;
 uniform sampler2D uTexture;
+uniform vec2 uMousePosition; // Новый uniform для позиции курсора
 varying vec2 vUv;
 varying vec2 vScreenPosition;
 
@@ -147,10 +148,29 @@ void main() {
     // Применяем эффект рыбьего глаза
     vec3 dir = getFishEye(uv, 0.8);
     
-    float c = cos(uTime);
-    float s = sin(uTime);
-    dir.xz = vec2(dir.x * c - dir.z * s, dir.x * s + dir.z * c);
-    obj_pos.xz = vec2(obj_pos.x * c - obj_pos.z * s, obj_pos.x * s + obj_pos.z * c);
+    // Увеличиваем базовую скорость вращения с 0.05 до 0.15
+    float baseRotationSpeed = 0.15;
+    float baseTime = uTime * baseRotationSpeed;
+    float c = cos(baseTime);
+    float s = sin(baseTime);
+    
+    // Добавляем влияние позиции курсора (горизонтальное вращение)
+    float mouseInfluence = 1.0; // Увеличиваем силу влияния курсора
+    
+    // Используем только горизонтальное положение мыши (x)
+    // и применяем нелинейное преобразование для более плавного эффекта
+    float mouseX = uMousePosition.x;
+    float mouseRotation = mouseX * mouseInfluence * PI * 0.25; // Максимальный поворот ±45 градусов
+    
+    // Комбинируем базовое вращение и вращение от курсора
+    // Используем матрицу поворота для более точного контроля
+    mat2 baseRotation = mat2(c, -s, s, c);
+    mat2 mouseRotationMatrix = mat2(cos(mouseRotation), -sin(mouseRotation), 
+                                   sin(mouseRotation), cos(mouseRotation));
+    
+    // Применяем сначала базовое вращение, затем вращение от мыши
+    dir.xz = mouseRotationMatrix * (baseRotation * dir.xz);
+    obj_pos.xz = mouseRotationMatrix * (baseRotation * obj_pos.xz);
     
     // Уменьшаем виньетирование
     float fish_eye = smoothstep(2.0, 1.6, length(uv)) * 0.15 + 0.85;
@@ -168,8 +188,42 @@ class CircularGallery {
 
         this.currentImage = null;
         this.defaultImageUrl = defaultImageUrl || null;
+        
+        // Инициализация переменных для отслеживания позиции мыши
+        this.mousePosition = { x: 0, y: 0 };
+        this.targetMousePosition = { x: 0, y: 0 }; // Целевая позиция для плавной интерполяции
+        this.isHovering = false;
+        
+        // Добавляем обработчики событий мыши только для десктопов
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (!isMobile) {
+            this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
+            this.canvas.addEventListener('mouseenter', this.handleMouseEnter.bind(this));
+            this.canvas.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
+        }
+        
         this.initWebGL();
         this.loadImage();
+    }
+    
+    // Обработчик движения мыши
+    handleMouseMove(event) {
+        const rect = this.canvas.getBoundingClientRect();
+        // Нормализуем координаты мыши в диапазон [-1, 1]
+        this.targetMousePosition.x = ((event.clientX - rect.left) / this.canvas.clientWidth) * 2 - 1;
+        this.targetMousePosition.y = ((event.clientY - rect.top) / this.canvas.clientHeight) * 2 - 1;
+    }
+    
+    // Обработчик входа курсора в область canvas
+    handleMouseEnter() {
+        this.isHovering = true;
+    }
+    
+    // Обработчик выхода курсора из области canvas
+    handleMouseLeave() {
+        this.isHovering = false;
+        // Плавно возвращаем позицию к центру
+        this.targetMousePosition = { x: 0, y: 0 };
     }
 
     updateImage(newImage) {
@@ -269,6 +323,7 @@ class CircularGallery {
         // Get uniform locations
         this.timeLocation = this.gl.getUniformLocation(this.program, 'uTime');
         this.resolutionLocation = this.gl.getUniformLocation(this.program, 'uResolution');
+        this.mousePositionLocation = this.gl.getUniformLocation(this.program, 'uMousePosition');
 
         // Create and set up texture
         this.texture = this.gl.createTexture();
@@ -293,6 +348,11 @@ class CircularGallery {
     render(time) {
         this.resizeCanvas();
 
+        // Плавная интерполяция позиции мыши
+        const interpolationFactor = 0.1; // Коэффициент плавности (0-1)
+        this.mousePosition.x += (this.targetMousePosition.x - this.mousePosition.x) * interpolationFactor;
+        this.mousePosition.y += (this.targetMousePosition.y - this.mousePosition.y) * interpolationFactor;
+
         // Clear canvas
         this.gl.clearColor(0, 0, 0, 1);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
@@ -305,6 +365,9 @@ class CircularGallery {
         // Set uniforms
         this.gl.uniform1f(this.timeLocation, (time - this.startTime) / 1000);
         this.gl.uniform2f(this.resolutionLocation, this.gl.canvas.width, this.gl.canvas.height);
+        
+        // Передаем позицию мыши в шейдер
+        this.gl.uniform2f(this.mousePositionLocation, this.mousePosition.x, this.mousePosition.y);
 
         // Set up position attribute
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
