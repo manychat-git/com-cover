@@ -86,19 +86,6 @@
         .swiper-pagination-bullet-active {
             opacity: 1;
         }
-        
-        /* Добавляем стиль для отладки */
-        .debug-info {
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 12px;
-            z-index: 1000;
-        }
     </style>
 </head>
 <body>
@@ -134,13 +121,10 @@
             </div>
             
             <!-- Canvas для WebGL эффектов -->
-            <canvas data-gallery="container" data-default-image="assets/img1.jpg" data-show-controls="true"></canvas>
+            <canvas data-gallery="container" data-default-image="assets/img1.jpg" data-show-controls="false"></canvas>
         </div>
     </div>
     
-    <!-- Отладочная информация -->
-    <div class="debug-info"></div>
-
     <!-- Подключаем скрипты -->
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script src="webflow-circular-gallery.js"></script>
@@ -148,19 +132,6 @@
     <!-- Инициализация Swiper -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const debugInfo = document.querySelector('.debug-info');
-            
-            // Проверяем загрузку изображений
-            const images = document.querySelectorAll('[data-gallery="image"]');
-            images.forEach((img, index) => {
-                img.onload = function() {
-                    debugInfo.innerHTML += `Изображение ${index+1} загружено: ${img.src}<br>`;
-                };
-                img.onerror = function() {
-                    debugInfo.innerHTML += `Ошибка загрузки изображения ${index+1}: ${img.src}<br>`;
-                };
-            });
-            
             // Инициализация Swiper с кастомными классами
             const swiper = new Swiper('[data-gallery="swiper"]', {
                 // Указываем кастомные классы
@@ -187,9 +158,6 @@
                 
                 // События
                 on: {
-                    init: function() {
-                        debugInfo.innerHTML += 'Swiper инициализирован<br>';
-                    },
                     slideChange: function() {
                         // При смене слайда меняем изображение в WebGL-галерее
                         const canvas = document.querySelector('[data-gallery="container"]');
@@ -197,8 +165,6 @@
                         const img = activeSlide.querySelector('[data-gallery="image"]');
                         
                         if (canvas && img) {
-                            debugInfo.innerHTML += `Смена слайда на ${this.activeIndex}, изображение: ${img.src}<br>`;
-                            
                             // Вызываем событие изменения для обновления WebGL
                             const event = new CustomEvent('galleryImageChange', {
                                 detail: { imageUrl: img.src }
@@ -208,12 +174,6 @@
                     }
                 }
             });
-            
-            // Проверяем инициализацию WebGL
-            const canvas = document.querySelector('[data-gallery="container"]');
-            if (canvas) {
-                debugInfo.innerHTML += `Canvas найден, data-default-image: ${canvas.getAttribute('data-default-image')}<br>`;
-            }
         });
     </script>
 </body>
