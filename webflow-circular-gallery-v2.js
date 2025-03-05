@@ -235,8 +235,8 @@ class CircularGallery {
         // Анимация искажения от 0 до 1
         gsap.timeline()
             .to(this.params, {
-                distortionStrength: 1,
-                duration: 0.3,
+                distortionStrength: 2,
+                duration: 0.5,
                 ease: "power2.inOut",
                 onComplete: () => {
                     console.log('[DEBUG] First part of animation complete, updating image');
@@ -248,7 +248,7 @@ class CircularGallery {
                     // Анимация искажения обратно от 1 до 0
                     gsap.to(this.params, {
                         distortionStrength: 0,
-                        duration: 0.3,
+                        duration: 0.5,
                         ease: "power2.out",
                         onComplete: () => {
                             console.log('[DEBUG] Animation complete');
@@ -397,7 +397,7 @@ class CircularGallery {
         this.gl.uniform1f(this.timeLocation, currentTime);
         this.gl.uniform2f(this.resolutionLocation, this.canvas.width, this.canvas.height);
         this.gl.uniform2f(this.mouseLocation, this.mousePosition.x, this.mousePosition.y);
-        this.gl.uniform1f(this.distortionStrengthLocation, this.params.distortionStrength);
+        this.gl.uniform1f(this.distortionStrengthLocation, this.params.distortionStrength * 0.5);
         this.gl.uniform1f(this.animationSpeedLocation, this.params.animationSpeed);
         
         // Передаем размеры изображения
