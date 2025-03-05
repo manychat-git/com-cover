@@ -9,7 +9,6 @@ An interactive WebGL-based image viewer with chromatic aberration and distortion
 - Chromatic aberration effect
 - Interactive UI controls
 - Responsive design
-- Swiper.js integration for gallery functionality
 
 ## Webflow Integration
 
@@ -23,7 +22,7 @@ An interactive WebGL-based image viewer with chromatic aberration and distortion
 6. Add an Embed element at the end of your page with this script:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/manychat-git/com-cover@v1.2.0/webflow-circular-gallery.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/manychat-git/com-cover@v1.1.0/webflow-circular-gallery.js"></script>
 ```
 
 ### Example
@@ -33,45 +32,6 @@ An interactive WebGL-based image viewer with chromatic aberration and distortion
   <canvas data-gallery="container" data-default-image="https://example.com/your-image.jpg" data-show-controls="false"></canvas>
 </div>
 ```
-
-### Swiper Integration
-
-To use with Swiper.js for a gallery:
-
-1. Add Swiper CSS and JS to your site:
-```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
-<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
-```
-
-2. Create a gallery structure with your custom classes:
-```html
-<div class="gallery-container" style="width: 100%; height: 500px; position: relative;">
-  <!-- Swiper с кастомными классами -->
-  <div class="swiper-cover" data-gallery="swiper">
-    <div class="swiper-cover_wrapper">
-      <!-- Слайды -->
-      <div class="swiper-cover_slide">
-        <img src="path/to/image1.jpg" data-gallery="image" style="display: none;">
-      </div>
-      <div class="swiper-cover_slide">
-        <img src="path/to/image2.jpg" data-gallery="image" style="display: none;">
-      </div>
-      <!-- Добавьте больше слайдов по необходимости -->
-    </div>
-    
-    <!-- Навигация -->
-    <div class="swiper-button-prev"></div>
-    <div class="swiper-button-next"></div>
-    <div class="swiper-pagination"></div>
-  </div>
-  
-  <!-- Canvas для WebGL эффектов -->
-  <canvas data-gallery="container" data-show-controls="false"></canvas>
-</div>
-```
-
-3. The script will automatically initialize Swiper with your custom classes and connect it to the WebGL gallery.
 
 ## Local Development
 
@@ -104,5 +64,4 @@ This method allows you to see changes immediately without manually refreshing th
 - GLSL Shaders
 - JavaScript
 - HTML5
-- CSS3
-- Swiper.js (optional) 
+- CSS3 
