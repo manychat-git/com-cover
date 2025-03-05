@@ -1,3 +1,32 @@
+// Добавляем GSAP для анимаций
+const gsap = window.gsap || {
+    utils: {
+        clamp: (min, max, value) => Math.min(Math.max(value, min), max)
+    }
+};
+
+// Создаем общий загрузчик изображений
+const imageLoader = {
+    cache: new Map(),
+    
+    async load(url) {
+        if (this.cache.has(url)) {
+            return this.cache.get(url);
+        }
+        
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+                this.cache.set(url, img);
+                resolve(img);
+            };
+            img.onerror = reject;
+            img.src = url;
+        });
+    }
+};
+
 // Шейдеры встроены в скрипт
 const VERTEX_SHADER = `
 attribute vec4 aPosition;
@@ -17,7 +46,9 @@ precision highp float;
 uniform float uTime;
 uniform vec2 uResolution;
 uniform sampler2D uTexture;
-uniform vec2 uMousePosition; // Новый uniform для позиции курсора
+uniform sampler2D uTextureNext;
+uniform float uTransition;
+uniform vec2 uMousePosition;
 varying vec2 vUv;
 varying vec2 vScreenPosition;
 
@@ -26,25 +57,13 @@ varying vec2 vScreenPosition;
 vec3 obj_pos = vec3(0.0, 0.0, -10.0);
 float obj_size = 5.0;
 
-float sphere(vec3 dir, vec3 center, float radius) {
-    vec3 rp = -center;
-    float b = dot(rp, dir);
-    float dist = b * b - (dot(rp, rp) - radius * radius);
-    if(dist <= 0.0) return -1.0;
-    return -b - sqrt(dist);
-}
-
-float somestep(float t) {
-    return pow(t, 4.0);
-}
-
 vec3 getFishEye(vec2 uv, float level) {
     float len = length(uv);
     float a = len * level;
     return vec3(uv / len * sin(a), -cos(a));
 }
 
-vec3 textureAVG(sampler2D tex, vec3 tc) {
+vec3 textureAVG(sampler2D tex, vec2 tc) {
     const float diff0 = 0.35;
     const float diff1 = 0.12;
     vec2 flippedCoord = vec2(tc.x, 1.0 - tc.y);
@@ -62,123 +81,75 @@ vec3 textureAVG(sampler2D tex, vec3 tc) {
     return (s0 + s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8) * 0.111111111;
 }
 
-vec3 textureBlured(sampler2D tex, vec3 tc) {
-    vec3 r = textureAVG(tex, vec3(1.0, 0.0, 0.0));
-    vec3 t = textureAVG(tex, vec3(0.0, 1.0, 0.0));
-    vec3 f = textureAVG(tex, vec3(0.0, 0.0, 1.0));
-    vec3 l = textureAVG(tex, vec3(-1.0, 0.0, 0.0));
-    vec3 b = textureAVG(tex, vec3(0.0, -1.0, 0.0));
-    vec3 a = textureAVG(tex, vec3(0.0, 0.0, -1.0));
-    
-    float kr = dot(tc, vec3(1.0, 0.0, 0.0)) * 0.5 + 0.5;
-    float kt = dot(tc, vec3(0.0, 1.0, 0.0)) * 0.5 + 0.5;
-    float kf = dot(tc, vec3(0.0, 0.0, 1.0)) * 0.5 + 0.5;
-    float kl = 1.0 - kr;
-    float kb = 1.0 - kt;
-    float ka = 1.0 - kf;
-    
-    kr = somestep(kr);
-    kt = somestep(kt);
-    kf = somestep(kf);
-    kl = somestep(kl);
-    kb = somestep(kb);
-    ka = somestep(ka);
-    
-    float d;
-    vec3 ret;
-    ret = f * kf; d = kf;
-    ret += a * ka; d += ka;
-    ret += l * kl; d += kl;
-    ret += r * kr; d += kr;
-    ret += t * kt; d += kt;
-    ret += b * kb; d += kb;
-    
-    return ret / d;
-}
-
-float phong(vec3 l, vec3 e, vec3 n, float power) {
-    float nrm = (power + 8.0) / (PI * 8.0);
-    return pow(max(dot(l, reflect(e, n)), 0.0), power) * nrm;
-}
-
-float G1V(float dotNV, float k) {
-    return 1.0 / (dotNV * (1.0 - k) + k);
-}
-
-float GGX(vec3 N, vec3 V, vec3 L, float roughness, float F0) {
-    float alpha = roughness * roughness;
-    vec3 H = normalize(V + L);
-    
-    float dotNL = clamp(dot(N, L), 0.0, 1.0);
-    float dotNV = clamp(dot(N, V), 0.0, 1.0);
-    float dotNH = clamp(dot(N, H), 0.0, 1.0);
-    float dotLH = clamp(dot(L, H), 0.0, 1.0);
-    
-    float alphaSqr = alpha * alpha;
-    float denom = dotNH * dotNH * (alphaSqr - 1.0) + 1.0;
-    float D = alphaSqr / (PI * denom * denom);
-    
-    float dotLH5 = pow(1.0 - dotLH, 5.0);
-    float F = F0 + (1.0 - F0) * dotLH5;
-    
-    float k = alpha / 2.0;
-    float vis = G1V(dotNL, k) * G1V(dotNV, k);
-    
-    return D * F * vis;
-}
-
-vec3 getColor(vec3 ray) {
+vec3 getColor(vec3 ray, sampler2D tex) {
     vec2 baseUV = ray.xy;
     baseUV = (baseUV + 1.0) * 0.5;
+    
+    // Корректируем UV координаты с учетом соотношения сторон (как object-fit: cover)
+    float containerAspect = uResolution.x / uResolution.y;
+    float scale = 1.0;
+    
+    // Масштабируем UV координаты, чтобы заполнить контейнер
+    if (containerAspect < 1.0) {
+        // Если контейнер выше, чем шире
+        scale = containerAspect;
+        baseUV.x = baseUV.x * scale + (1.0 - scale) * 0.5;
+    } else {
+        // Если контейнер шире, чем выше
+        scale = 1.0 / containerAspect;
+        baseUV.y = baseUV.y * scale + (1.0 - scale) * 0.5;
+    }
+    
     baseUV.y = 1.0 - baseUV.y;
-    
-    vec3 baseColor = texture2D(uTexture, baseUV).xyz;
-    
-    // Отключаем расчёт эффектов сферы – возвращаем базовый цвет текстуры.
+    vec3 baseColor = texture2D(tex, baseUV).xyz;
     return baseColor;
 }
 
 void main() {
     vec2 uv = vScreenPosition.xy;
-    
-    // Корректируем соотношение сторон для полного заполнения экрана
     float aspect = uResolution.x / uResolution.y;
     uv.x *= aspect;
     
-    // Применяем эффект рыбьего глаза
     vec3 dir = getFishEye(uv, 0.8);
     
-    // Увеличиваем базовую скорость вращения с 0.05 до 0.15
-    float baseRotationSpeed = 0.15;
-    float baseTime = uTime * baseRotationSpeed;
-    float c = cos(baseTime);
-    float s = sin(baseTime);
+    float mouseX = 1.0 - uMousePosition.x;
+    float mouseInfluence = 1.0;
+    float mouseRotation = mouseX * mouseInfluence * PI * 0.25;
     
-    // Добавляем влияние позиции курсора (горизонтальное вращение)
-    float mouseInfluence = 1.0; // Увеличиваем силу влияния курсора
+    // Добавляем вращение для перехода
+    float transitionRotation = uTransition * PI * 2.0;
     
-    // Используем только горизонтальное положение мыши (x)
-    // и применяем нелинейное преобразование для более плавного эффекта
-    float mouseX = uMousePosition.x;
-    float mouseRotation = mouseX * mouseInfluence * PI * 0.25; // Максимальный поворот ±45 градусов
+    // Матрица вращения от мыши
+    mat2 mouseRotationMatrix = mat2(
+        cos(mouseRotation), -sin(mouseRotation),
+        sin(mouseRotation), cos(mouseRotation)
+    );
     
-    // Комбинируем базовое вращение и вращение от курсора
-    // Используем матрицу поворота для более точного контроля
-    mat2 baseRotation = mat2(c, -s, s, c);
-    mat2 mouseRotationMatrix = mat2(cos(mouseRotation), -sin(mouseRotation), 
-                                   sin(mouseRotation), cos(mouseRotation));
+    // Матрица вращения для перехода
+    mat2 transitionRotationMatrix = mat2(
+        cos(transitionRotation), -sin(transitionRotation),
+        sin(transitionRotation), cos(transitionRotation)
+    );
     
-    // Применяем сначала базовое вращение, затем вращение от мыши
-    dir.xz = mouseRotationMatrix * (baseRotation * dir.xz);
-    obj_pos.xz = mouseRotationMatrix * (baseRotation * obj_pos.xz);
+    // Применяем оба вращения
+    dir.xz = mouseRotationMatrix * dir.xz;
+    dir.xz = transitionRotationMatrix * dir.xz;
     
-    // Уменьшаем виньетирование
+    // Получаем цвет из текущей или следующей текстуры в зависимости от угла поворота
+    vec3 color;
+    float transitionAngle = mod(transitionRotation, PI * 2.0);
+    if (transitionAngle < PI) {
+        color = getColor(dir, uTexture);
+    } else {
+        color = getColor(dir, uTextureNext);
+    }
+    
     float fish_eye = smoothstep(2.0, 1.6, length(uv)) * 0.15 + 0.85;
-    gl_FragColor = vec4(getColor(dir) * fish_eye, 1.0);
+    gl_FragColor = vec4(color * fish_eye, 1.0);
 }`;
 
 class CircularGallery {
-    constructor(canvas, defaultImageUrl) {
+    constructor(canvas) {
         this.canvas = canvas;
         this.gl = canvas.getContext('webgl');
         if (!this.gl) {
@@ -186,13 +157,47 @@ class CircularGallery {
             return;
         }
 
+        // Добавляем класс preload к canvas для предотвращения анимации
+        this.canvas.classList.add('preload');
+
         this.currentImage = null;
-        this.defaultImageUrl = defaultImageUrl || null;
+        this.startTime = performance.now();
+        this.isInitialized = false;
         
         // Инициализация переменных для отслеживания позиции мыши
-        this.mousePosition = { x: 0, y: 0 };
-        this.targetMousePosition = { x: 0, y: 0 }; // Целевая позиция для плавной интерполяции
+        this.mousePosition = { x: 0.5, y: 0.5 };
+        this.targetMousePosition = { x: 0.5, y: 0.5 };
         this.isHovering = false;
+        
+        // Добавляем параметры для перехода
+        this.params = {
+            distortionStrength: 0,
+            transition: 0,
+            animationSpeed: 0
+        };
+        
+        this.nextTexture = null;
+        this.isTransitioning = false;
+        
+        // Флаг для отслеживания анимации
+        this.isTransitioning = false;
+        
+        // Добавляем стили для предотвращения анимации при загрузке
+        const style = document.createElement('style');
+        style.textContent = `
+            canvas[data-gallery="container"].preload {
+                animation: none !important;
+                transition: none !important;
+            }
+            canvas[data-gallery="container"].preload * {
+                animation: none !important;
+                transition: none !important;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Инициализация WebGL
+        this.initWebGL();
         
         // Добавляем обработчики событий мыши только для десктопов
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -201,66 +206,134 @@ class CircularGallery {
             this.canvas.addEventListener('mouseenter', this.handleMouseEnter.bind(this));
             this.canvas.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
         }
-        
-        this.initWebGL();
+
+        // Немедленно загружаем первое изображение
         this.loadImage();
     }
     
     // Обработчик движения мыши
     handleMouseMove(event) {
+        if (!this.isHovering) return;
+        
         const rect = this.canvas.getBoundingClientRect();
-        // Нормализуем координаты мыши в диапазон [-1, 1]
-        this.targetMousePosition.x = ((event.clientX - rect.left) / this.canvas.clientWidth) * 2 - 1;
-        this.targetMousePosition.y = ((event.clientY - rect.top) / this.canvas.clientHeight) * 2 - 1;
+        const x = event.clientX / window.innerWidth;
+        const y = 1 - event.clientY / window.innerHeight;
+        
+        this.targetMousePosition = {
+            x: gsap.utils.clamp(0, 1, x),
+            y: gsap.utils.clamp(0, 1, y)
+        };
     }
     
-    // Обработчик входа курсора в область canvas
     handleMouseEnter() {
         this.isHovering = true;
     }
     
-    // Обработчик выхода курсора из области canvas
     handleMouseLeave() {
         this.isHovering = false;
-        // Плавно возвращаем позицию к центру
-        this.targetMousePosition = { x: 0, y: 0 };
+        this.targetMousePosition = { x: 0.5, y: 0.5 };
     }
 
-    updateImage(newImage) {
-        this.currentImage = newImage;
-        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+    async updateImage(newImage, skipAnimation = false) {
+        console.log('[DEBUG] updateImage() called', {
+            isInitialized: this.isInitialized,
+            hasCurrentImage: !!this.currentImage,
+            skipAnimation,
+            isTransitioning: this.isTransitioning,
+            currentImageSrc: this.currentImage?.src,
+            newImageSrc: newImage?.src
+        });
+
+        // Если это первое изображение и галерея уже инициализирована, пропускаем
+        if (this.isInitialized && !this.currentImage) {
+            console.log('[DEBUG] Skipping updateImage: gallery initialized but no current image');
+            return;
+        }
+
+        if (!this.gl || !newImage) {
+            console.warn('GL context or image not available');
+            return;
+        }
+
+        if (this.currentImage && this.currentImage.src === newImage.src) {
+            console.log('[DEBUG] Skipping updateImage: same image');
+            return;
+        }
+
+        if (this.isTransitioning) {
+            console.log('[DEBUG] Skipping updateImage: transition in progress');
+            return;
+        }
+
+        this.isTransitioning = true;
+
+        // Загружаем новое изображение в следующую текстуру
+        this.gl.activeTexture(this.gl.TEXTURE1);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.nextTexture);
         this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, newImage);
+        
+        // Устанавливаем текстурный юнит для nextTexture
+        this.gl.uniform1i(this.textureNextLocation, 1);
+
+        if (skipAnimation) {
+            // Мгновенное обновление без анимации
+            this.gl.activeTexture(this.gl.TEXTURE0);
+            this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, newImage);
+            this.currentImage = newImage;
+            this.isTransitioning = false;
+            return;
+        }
+
+        // Анимируем переход
+        gsap.timeline()
+            .to(this.params, {
+                transition: 1,
+                duration: 1.2,
+                ease: "power2.inOut",
+                onUpdate: () => {
+                    this.gl.uniform1f(this.transitionLocation, this.params.transition);
+                },
+                onComplete: () => {
+                    // После завершения перехода обновляем основную текстуру
+                    this.gl.activeTexture(this.gl.TEXTURE0);
+                    this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+                    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, newImage);
+                    this.currentImage = newImage;
+                    this.params.transition = 0;
+                    this.isTransitioning = false;
+                    
+                    // Сбрасываем следующую текстуру
+                    this.gl.activeTexture(this.gl.TEXTURE1);
+                    this.gl.bindTexture(this.gl.TEXTURE_2D, this.nextTexture);
+                    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, 1, 1, 0, this.gl.RGBA, this.gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+                }
+            });
     }
 
     async loadImage() {
-        const img = new Image();
-        img.crossOrigin = "anonymous"; // Важно для загрузки изображений с других доменов
-        
-        // Используем URL изображения из параметров или из атрибута data-default-image
-        const imageUrl = this.defaultImageUrl || this.canvas.getAttribute('data-default-image');
-        
-        if (!imageUrl) {
-            console.error('No default image URL provided');
+        console.log('[DEBUG] loadImage() called');
+        const firstImage = document.querySelector('[data-gallery="image"]');
+        if (!firstImage) {
+            console.error('[DEBUG] No images found in gallery');
             return;
         }
-        
-        img.src = imageUrl;
-        
-        await new Promise(resolve => {
-            img.onload = () => {
-                this.currentImage = img;
-                resolve();
-            };
-            img.onerror = () => {
-                console.error('Failed to load image:', imageUrl);
-                resolve();
-            };
-        });
 
-        if (this.currentImage) {
-            // Start animation once image is loaded
-            this.startTime = performance.now();
-            this.animate();
+        try {
+            console.log('[DEBUG] Loading first image:', firstImage.src);
+            const img = await imageLoader.load(firstImage.src);
+            console.log('[DEBUG] First image loaded successfully');
+            this.currentImage = img;
+            this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, img);
+            this.isInitialized = true;
+
+            if (this.currentImage) {
+                this.startTime = performance.now();
+                this.animate(this.startTime);
+            }
+        } catch (error) {
+            console.error('[DEBUG] Failed to load image:', error);
         }
     }
 
@@ -278,11 +351,9 @@ class CircularGallery {
     }
 
     initWebGL() {
-        // Create shaders using the embedded shader code
         const vertexShader = this.createShader(this.gl.VERTEX_SHADER, VERTEX_SHADER);
         const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
 
-        // Create program
         this.program = this.gl.createProgram();
         this.gl.attachShader(this.program, vertexShader);
         this.gl.attachShader(this.program, fragmentShader);
@@ -293,7 +364,7 @@ class CircularGallery {
             return;
         }
 
-        // Create buffers
+        // Создаем и инициализируем буферы
         const positions = new Float32Array([
             -1, -1,
             1, -1,
@@ -316,22 +387,43 @@ class CircularGallery {
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.texCoordBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, texCoords, this.gl.STATIC_DRAW);
 
-        // Get attribute locations
+        // Получаем локации атрибутов и униформ
         this.positionLocation = this.gl.getAttribLocation(this.program, 'aPosition');
         this.texCoordLocation = this.gl.getAttribLocation(this.program, 'aTexCoord');
-
-        // Get uniform locations
         this.timeLocation = this.gl.getUniformLocation(this.program, 'uTime');
         this.resolutionLocation = this.gl.getUniformLocation(this.program, 'uResolution');
         this.mousePositionLocation = this.gl.getUniformLocation(this.program, 'uMousePosition');
 
-        // Create and set up texture
+        // Создаем и настраиваем текстуру
         this.texture = this.gl.createTexture();
         this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+        
+        // Устанавливаем параметры текстуры
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+        
+        // Создаем пустую текстуру нужного размера
+        const width = 1;
+        const height = 1;
+        const pixels = new Uint8Array([0, 0, 0, 255]);
+        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, width, height, 0, this.gl.RGBA, this.gl.UNSIGNED_BYTE, pixels);
+
+        // Создаем текстуру для следующего изображения
+        this.nextTexture = this.gl.createTexture();
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.nextTexture);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+        
+        // Создаем пустую текстуру
+        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, 1, 1, 0, this.gl.RGBA, this.gl.UNSIGNED_BYTE, pixels);
+
+        // Получаем локации униформ для перехода
+        this.transitionLocation = this.gl.getUniformLocation(this.program, 'uTransition');
+        this.textureNextLocation = this.gl.getUniformLocation(this.program, 'uTextureNext');
     }
 
     resizeCanvas() {
@@ -348,42 +440,41 @@ class CircularGallery {
     render(time) {
         this.resizeCanvas();
 
-        // Плавная интерполяция позиции мыши
-        const interpolationFactor = 0.1; // Коэффициент плавности (0-1)
+        const interpolationFactor = 0.1;
         this.mousePosition.x += (this.targetMousePosition.x - this.mousePosition.x) * interpolationFactor;
         this.mousePosition.y += (this.targetMousePosition.y - this.mousePosition.y) * interpolationFactor;
 
-        // Clear canvas
         this.gl.clearColor(0, 0, 0, 1);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
 
         if (!this.currentImage) return;
 
-        // Use shader program
         this.gl.useProgram(this.program);
 
-        // Set uniforms
+        // Устанавливаем униформы
         this.gl.uniform1f(this.timeLocation, (time - this.startTime) / 1000);
         this.gl.uniform2f(this.resolutionLocation, this.gl.canvas.width, this.gl.canvas.height);
-        
-        // Передаем позицию мыши в шейдер
         this.gl.uniform2f(this.mousePositionLocation, this.mousePosition.x, this.mousePosition.y);
+        this.gl.uniform1f(this.transitionLocation, this.params.transition);
 
-        // Set up position attribute
+        // Активируем и привязываем текстуры
+        this.gl.activeTexture(this.gl.TEXTURE0);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+        this.gl.uniform1i(this.gl.getUniformLocation(this.program, 'uTexture'), 0);
+
+        this.gl.activeTexture(this.gl.TEXTURE1);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.nextTexture);
+        this.gl.uniform1i(this.textureNextLocation, 1);
+
+        // Устанавливаем атрибуты и рисуем
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
         this.gl.enableVertexAttribArray(this.positionLocation);
         this.gl.vertexAttribPointer(this.positionLocation, 2, this.gl.FLOAT, false, 0, 0);
 
-        // Set up texCoord attribute
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.texCoordBuffer);
         this.gl.enableVertexAttribArray(this.texCoordLocation);
         this.gl.vertexAttribPointer(this.texCoordLocation, 2, this.gl.FLOAT, false, 0, 0);
 
-        // Update texture
-        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
-        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, this.currentImage);
-
-        // Draw
         this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
     }
 
@@ -393,275 +484,40 @@ class CircularGallery {
     }
 }
 
-class GalleryController {
-    constructor(galleryInstance) {
-        this.gallery = galleryInstance;
-        this.isExpanded = true;
-        this.createUI();
-    }
-
-    createUI() {
-        // Создаем основной контейнер
-        const container = document.createElement('div');
-        container.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 20px;
-            border-radius: 12px;
-            color: #37352F;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            z-index: 1000;
-            box-shadow: rgba(15, 15, 15, 0.05) 0px 0px 0px 1px, 
-                        rgba(15, 15, 15, 0.1) 0px 3px 6px, 
-                        rgba(15, 15, 15, 0.2) 0px 9px 24px;
-            transition: all 0.3s ease;
-            min-width: 260px;
-        `;
-
-        // Создаем заголовок
-        const header = document.createElement('div');
-        header.style.cssText = `
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: ${this.isExpanded ? '15px' : '0'};
-            cursor: pointer;
-            user-select: none;
-            transition: margin 0.3s ease;
-        `;
-
-        const title = document.createElement('div');
-        title.style.cssText = `
-            font-weight: 500;
-            font-size: 14px;
-            color: #37352F;
-        `;
-        title.textContent = 'Image Controls';
-
-        const toggleButton = document.createElement('div');
-        toggleButton.style.cssText = `
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 4px;
-            color: #37352F;
-            transition: all 0.3s ease;
-            font-size: 16px;
-            font-weight: 400;
-            line-height: 1;
-        `;
-        toggleButton.innerHTML = '−';
-
-        toggleButton.addEventListener('mouseover', () => {
-            toggleButton.style.background = 'rgba(55, 53, 47, 0.08)';
-        });
-        toggleButton.addEventListener('mouseout', () => {
-            toggleButton.style.background = 'transparent';
-        });
-
-        // Контейнер для содержимого
-        const content = document.createElement('div');
-        content.style.cssText = `
-            transition: all 0.3s ease;
-            overflow: hidden;
-            opacity: 1;
-        `;
-
-        // Создаем зону для дропа файлов
-        const dropZone = document.createElement('div');
-        dropZone.style.cssText = `
-            border: 2px dashed rgba(55, 53, 47, 0.2);
-            border-radius: 8px;
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 15px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        `;
-        dropZone.innerHTML = '<div style="font-size: 24px; margin-bottom: 10px;">📁</div>Drop image here<br>or click to upload';
-
-        // Создаем кнопку Reset
-        const resetButton = document.createElement('button');
-        resetButton.style.cssText = `
-            width: 100%;
-            padding: 8px 12px;
-            background: transparent;
-            border: 1px solid rgba(55, 53, 47, 0.2);
-            border-radius: 4px;
-            color: #37352F;
-            font-family: inherit;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-        `;
-        resetButton.innerHTML = '↺ Reset to Default';
-        
-        resetButton.addEventListener('mouseover', () => {
-            resetButton.style.background = 'rgba(55, 53, 47, 0.08)';
-        });
-        resetButton.addEventListener('mouseout', () => {
-            resetButton.style.background = 'transparent';
-        });
-        resetButton.addEventListener('click', () => {
-            const defaultImg = new Image();
-            defaultImg.crossOrigin = "anonymous";
-            defaultImg.onload = () => {
-                this.gallery.updateImage(defaultImg);
-            };
-            // Используем URL изображения из атрибута data-default-image
-            const defaultImageUrl = this.gallery.canvas.getAttribute('data-default-image');
-            if (defaultImageUrl) {
-                defaultImg.src = defaultImageUrl;
-            }
-        });
-
-        // Эффекты при наведении на зону дропа
-        dropZone.addEventListener('mouseover', () => {
-            dropZone.style.borderColor = 'rgba(55, 53, 47, 0.4)';
-            dropZone.style.background = 'rgba(55, 53, 47, 0.03)';
-        });
-        dropZone.addEventListener('mouseout', () => {
-            dropZone.style.borderColor = 'rgba(55, 53, 47, 0.2)';
-            dropZone.style.background = 'transparent';
-        });
-
-        // Создаем скрытый input для файла
-        const fileInput = document.createElement('input');
-        fileInput.type = 'file';
-        fileInput.accept = 'image/*';
-        fileInput.style.display = 'none';
-
-        // Обработчики для drag & drop
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.style.borderColor = 'rgba(55, 53, 47, 0.6)';
-            dropZone.style.background = 'rgba(55, 53, 47, 0.06)';
-        });
-
-        dropZone.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            dropZone.style.borderColor = 'rgba(55, 53, 47, 0.2)';
-            dropZone.style.background = 'transparent';
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            const file = e.dataTransfer.files[0];
-            if (file && file.type.startsWith('image/')) {
-                this.handleFile(file);
-            }
-            dropZone.style.borderColor = 'rgba(55, 53, 47, 0.2)';
-            dropZone.style.background = 'transparent';
-        });
-
-        // Обработчик клика по зоне дропа
-        dropZone.addEventListener('click', () => fileInput.click());
-
-        // Обработчик выбора файла
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                this.handleFile(file);
-            }
-        });
-
-        // Обработчик сворачивания/разворачивания
-        header.addEventListener('click', () => {
-            this.isExpanded = !this.isExpanded;
-            content.style.height = this.isExpanded ? content.scrollHeight + 'px' : '0';
-            content.style.opacity = this.isExpanded ? '1' : '0';
-            content.style.marginTop = this.isExpanded ? '0' : '-10px';
-            header.style.marginBottom = this.isExpanded ? '15px' : '0';
-            toggleButton.innerHTML = this.isExpanded ? '−' : '+';
-        });
-
-        // Собираем UI
-        header.appendChild(title);
-        header.appendChild(toggleButton);
-        content.appendChild(dropZone);
-        content.appendChild(resetButton);
-        content.appendChild(fileInput);
-        container.appendChild(header);
-        container.appendChild(content);
-        document.body.appendChild(container);
-
-        // Устанавливаем начальную высоту контента
-        requestAnimationFrame(() => {
-            content.style.height = content.scrollHeight + 'px';
-        });
-    }
-
-    handleFile(file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-                this.gallery.updateImage(img);
-            };
-            img.src = event.target.result;
-        };
-        reader.readAsDataURL(file);
-    }
-}
-
 // Инициализация при загрузке страницы
 window.addEventListener('DOMContentLoaded', () => {
-    // Создаем глобальный массив для хранения экземпляров галереи
     window.circularGalleries = [];
     
-    // Функция инициализации галереи
     function initializeGallery() {
         console.log('Initializing circular gallery...');
         
-        // Находим все canvas с атрибутом data-gallery="container"
         const canvases = document.querySelectorAll('canvas[data-gallery="container"]');
+        const galleryImages = document.querySelectorAll('[data-gallery="image"]');
         
         if (canvases.length === 0) {
             console.log('No gallery canvases found yet.');
             return false;
         }
         
-        // Проверяем наличие изображений в атрибутах data-gallery="image"
-        const galleryImages = document.querySelectorAll('[data-gallery="image"]');
         console.log('Found gallery images:', galleryImages.length);
         
         canvases.forEach(canvas => {
-            // Проверяем, не был ли этот canvas уже инициализирован
             if (canvas.hasAttribute('data-gallery-initialized')) {
                 return;
             }
             
             const gallery = new CircularGallery(canvas);
-            
-            // Отмечаем canvas как инициализированный
             canvas.setAttribute('data-gallery-initialized', 'true');
-            
-            // Сохраняем экземпляр в глобальный массив
             window.circularGalleries.push(gallery);
             
-            // Проверяем, нужно ли создавать контроллер (по умолчанию скрыты)
-            const showControls = canvas.getAttribute('data-show-controls') === 'true';
-            if (showControls) {
-                new GalleryController(gallery);
-            }
-            
-            // Добавляем обработчик события для смены изображения
-            canvas.addEventListener('galleryImageChange', (event) => {
+            canvas.addEventListener('galleryImageChange', async (event) => {
                 if (event.detail && event.detail.imageUrl) {
-                    const img = new Image();
-                    img.crossOrigin = "anonymous";
-                    img.onload = () => {
+                    try {
+                        const img = await imageLoader.load(event.detail.imageUrl);
                         gallery.updateImage(img);
-                    };
-                    img.src = event.detail.imageUrl;
+                    } catch (error) {
+                        console.error('Failed to load image:', error);
+                    }
                 }
             });
         });
@@ -669,155 +525,78 @@ window.addEventListener('DOMContentLoaded', () => {
         return true;
     }
     
-    // Пробуем инициализировать сразу
+    // Пытаемся инициализировать сразу
     let initialized = initializeGallery();
     
-    // Если не удалось инициализировать сразу, используем MutationObserver
     if (!initialized) {
-        console.log('Setting up MutationObserver to detect CMS elements...');
-        
-        // Создаем MutationObserver для отслеживания изменений в DOM
-        const observer = new MutationObserver((mutations) => {
-            let shouldCheck = false;
-            
-            mutations.forEach((mutation) => {
-                if (mutation.addedNodes.length) {
-                    // Проверяем, добавлены ли интересующие нас элементы
-                    mutation.addedNodes.forEach(node => {
-                        if (node.nodeType === 1) { // Только элементы (не текстовые узлы)
-                            if (node.hasAttribute && 
-                                (node.hasAttribute('data-gallery') || 
-                                 node.querySelector('[data-gallery]'))) {
-                                shouldCheck = true;
-                            }
-                        }
-                    });
-                }
-            });
-            
-            if (shouldCheck) {
-                console.log('Detected new gallery elements, attempting initialization...');
-                initialized = initializeGallery();
-                
-                // Если инициализация прошла успешно, отключаем observer
-                if (initialized) {
-                    console.log('Gallery successfully initialized, disconnecting observer.');
-                    observer.disconnect();
-                }
-            }
+        // Если не удалось, пробуем еще раз после короткой задержки
+        requestAnimationFrame(() => {
+            initialized = initializeGallery();
         });
-        
-        // Запускаем наблюдение за всем документом
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-        
-        // Дополнительно пробуем инициализировать через некоторое время
-        // на случай, если MutationObserver не сработает
-        setTimeout(() => {
-            if (!initialized) {
-                console.log('Attempting delayed initialization...');
-                initialized = initializeGallery();
-                
-                if (initialized) {
-                    console.log('Delayed initialization successful, disconnecting observer.');
-                    observer.disconnect();
-                }
-            }
-        }, 1500);
     }
     
-    // Инициализация Swiper для галереи
-    function initializeSwiperGallery() {
-        console.log('[DEBUG] Swiper Image Debugger Initialized');
-        
-        function setDefaultImage() {
-            const firstImage = document.querySelector('[data-gallery="image"]');
-            const canvas = document.querySelector('[data-gallery="container"]');
+    // Инициализируем Swiper с задержкой
+    setTimeout(initializeSwiperGallery, 500);
+});
 
-            if (canvas && firstImage) {
-                console.log('Setting default image:', firstImage.src);
-                canvas.setAttribute('data-default-image', firstImage.src);
+function initializeSwiperGallery() {
+    console.log('[DEBUG] Swiper Image Debugger Initialized');
 
-                const event = new CustomEvent('galleryImageChange', {
-                    detail: { imageUrl: firstImage.src }
-                });
-                canvas.dispatchEvent(event);
-            }
-        }
+    if (typeof Swiper === 'undefined') {
+        console.error('Swiper is not loaded. Please include Swiper.js in your project.');
+        return;
+    }
 
-        // Проверяем наличие Swiper
-        if (typeof Swiper === 'undefined') {
-            console.error('Swiper is not loaded. Please include Swiper.js in your project.');
-            // Все равно устанавливаем дефолтное изображение
-            setDefaultImage();
-            return;
-        }
+    const swiperElement = document.querySelector('[data-gallery="swiper"]');
+    if (!swiperElement) {
+        console.log('No Swiper element found with [data-gallery="swiper"] attribute.');
+        return;
+    }
 
-        // Проверяем наличие элемента Swiper
-        const swiperElement = document.querySelector('[data-gallery="swiper"]');
-        if (!swiperElement) {
-            console.log('No Swiper element found with [data-gallery="swiper"] attribute.');
-            // Все равно устанавливаем дефолтное изображение
-            setDefaultImage();
-            return;
-        }
+    try {
+        const swiper = new Swiper('[data-gallery="swiper"]', {
+            wrapperClass: 'swiper-cover_wrapper',
+            slideClass: 'swiper-cover_slide',
+            
+            slidesPerView: 1,
+            spaceBetween: 0,
+            loop: true,
+            
+            navigation: {
+                nextEl: '[data-gallery="next"]',
+                prevEl: '[data-gallery="prev"]'
+            },
+            
+            pagination: {
+                el: '.swiper-pagination',
+                clickable: true,
+            },
+            
+            on: {
+                slideChange: function() {
+                    console.log('[DEBUG] Swiper slideChange event fired');
+                    const canvas = document.querySelector('[data-gallery="container"]');
+                    const activeSlide = this.slides[this.realIndex];
+                    const img = activeSlide.querySelector('[data-gallery="image"]');
 
-        setDefaultImage();
-
-        try {
-            const swiper = new Swiper('[data-gallery="swiper"]', {
-                wrapperClass: 'swiper-cover_wrapper',
-                slideClass: 'swiper-cover_slide',
-                
-                slidesPerView: 1,
-                spaceBetween: 0,
-                loop: true,
-                effect: "fade",
-                fadeEffect: { crossFade: true } ,
-                
-                navigation: {
-                    nextEl: '[data-gallery="next"]',
-                    prevEl: '[data-gallery="prev"]'
-                },
-                
-                pagination: {
-                    el: '.swiper-pagination',
-                    clickable: true,
-                },
-                
-                on: {
-                    init: function() {
-                        setDefaultImage();
-                    },
-                    
-                    slideChange: function() {
-                        const canvas = document.querySelector('[data-gallery="container"]');
-                        const activeSlide = this.slides[this.realIndex]; // Используем realIndex
-                        const img = activeSlide.querySelector('[data-gallery="image"]');
-
-                        if (canvas && img) {
-                            console.log('Slide changed, updating image:', img.src);
-                            
-                            const event = new CustomEvent('galleryImageChange', {
-                                detail: { imageUrl: img.src }
-                            });
-                            canvas.dispatchEvent(event);
-                        }
+                    if (canvas && img) {
+                        console.log('[DEBUG] Slide changed, updating image:', {
+                            imageUrl: img.src,
+                            realIndex: this.realIndex
+                        });
+                        
+                        const event = new CustomEvent('galleryImageChange', {
+                            detail: { imageUrl: img.src }
+                        });
+                        canvas.dispatchEvent(event);
                     }
                 }
-            });
-            
-            console.log('Swiper initialized successfully');
-            window.gallerySwiper = swiper; // Сохраняем экземпляр в глобальную переменную
-        } catch (error) {
-            console.error('Error initializing Swiper:', error);
-            // Все равно устанавливаем дефолтное изображение
-            setDefaultImage();
-        }
+            }
+        });
+        
+        console.log('Swiper initialized successfully');
+        window.gallerySwiper = swiper;
+    } catch (error) {
+        console.error('Error initializing Swiper:', error);
     }
-    
-    // Инициализируем Swiper с небольшой задержкой после инициализации галереи
-    setTimeout(initializeSwiperGallery, 500);
-}); 
+}
