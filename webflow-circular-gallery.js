@@ -52,6 +52,7 @@ uniform sampler2D uTexture;
 uniform sampler2D uTextureNext;
 uniform float uTransition;
 uniform vec2 uMousePosition;
+uniform float uDirection;
 varying vec2 vUv;
 varying vec2 vScreenPosition;
 
@@ -88,17 +89,13 @@ vec3 getColor(vec3 ray, sampler2D tex) {
     vec2 baseUV = ray.xy;
     baseUV = (baseUV + 1.0) * 0.5;
     
-    // Корректируем UV координаты с учетом соотношения сторон (как object-fit: cover)
     float containerAspect = uResolution.x / uResolution.y;
     float scale = 1.0;
     
-    // Масштабируем UV координаты, чтобы заполнить контейнер
     if (containerAspect < 1.0) {
-        // Если контейнер выше, чем шире
         scale = containerAspect;
         baseUV.x = baseUV.x * scale + (1.0 - scale) * 0.5;
     } else {
-        // Если контейнер шире, чем выше
         scale = 1.0 / containerAspect;
         baseUV.y = baseUV.y * scale + (1.0 - scale) * 0.5;
     }
@@ -114,38 +111,39 @@ void main() {
     uv.x *= aspect;
     
     vec3 dir = getFishEye(uv, 0.8);
+    vec3 color;
     
     float mouseX = 1.0 - uMousePosition.x;
     float mouseInfluence = 1.0;
     float mouseRotation = mouseX * mouseInfluence * PI * 0.25;
     
-    // Добавляем вращение для перехода
-    float transitionRotation = uTransition * PI * 2.0;
+    float transitionRotation = uTransition * PI * 2.0 * uDirection;
     
-    // Матрица вращения от мыши
     mat2 mouseRotationMatrix = mat2(
         cos(mouseRotation), -sin(mouseRotation),
         sin(mouseRotation), cos(mouseRotation)
     );
     
-    // Матрица вращения для перехода
     mat2 transitionRotationMatrix = mat2(
         cos(transitionRotation), -sin(transitionRotation),
         sin(transitionRotation), cos(transitionRotation)
     );
     
-    // Применяем оба вращения
     dir.xz = mouseRotationMatrix * dir.xz;
     dir.xz = transitionRotationMatrix * dir.xz;
     
-    // Получаем цвет из текущей или следующей текстуры в зависимости от угла поворота
-    vec3 color;
-    float transitionAngle = mod(transitionRotation, PI * 2.0);
-    if (transitionAngle < PI) {
-        color = getColor(dir, uTexture);
-    } else {
-        color = getColor(dir, uTextureNext);
-    }
+    // Плавное смешивание текстур
+    vec3 currentColor = getColor(dir, uTexture);
+    vec3 nextColor = getColor(dir, uTextureNext);
+    
+    // Используем модуль угла для создания цикличного перехода
+    float transitionAngle = mod(abs(transitionRotation), PI * 2.0);
+    // Создаем более плавный переход в середине анимации
+    float mixFactor = smoothstep(0.0, PI * 2.0, transitionAngle);
+    mixFactor = smoothstep(0.1, 0.9, mixFactor);
+    
+    // Смешиваем текстуры
+    color = mix(currentColor, nextColor, mixFactor);
     
     float fish_eye = smoothstep(2.0, 1.6, length(uv)) * 0.15 + 0.85;
     gl_FragColor = vec4(color * fish_eye, 1.0);
@@ -176,7 +174,8 @@ class CircularGallery {
         this.params = {
             distortionStrength: 0,
             transition: 0,
-            animationSpeed: 0
+            animationSpeed: 0,
+            direction: 1 // 1 для вправо, -1 для влево
         };
         
         this.nextTexture = null;
@@ -244,7 +243,8 @@ class CircularGallery {
             skipAnimation,
             isTransitioning: this.isTransitioning,
             currentImageSrc: this.currentImage?.src,
-            newImageSrc: newImage?.src
+            newImageSrc: newImage?.src,
+            direction: this.params.direction
         });
 
         if (!this.gl || !newImage) {
@@ -280,12 +280,10 @@ class CircularGallery {
         // Используем программу перед установкой униформ
         this.gl.useProgram(this.program);
 
-        // Загружаем новое изображение в следующую текстуру
+        // Всегда загружаем новое изображение в следующую текстуру
         this.gl.activeTexture(this.gl.TEXTURE1);
         this.gl.bindTexture(this.gl.TEXTURE_2D, this.nextTexture);
         this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, newImage);
-        
-        // Устанавливаем текстурный юнит для nextTexture
         this.gl.uniform1i(this.textureNextLocation, 1);
 
         if (skipAnimation) {
@@ -305,9 +303,15 @@ class CircularGallery {
                 ease: "power2.inOut",
                 onUpdate: () => {
                     this.gl.useProgram(this.program);
+                    console.log('[DEBUG] Animation update:', {
+                        transition: this.params.transition,
+                        direction: this.params.direction
+                    });
                     this.gl.uniform1f(this.transitionLocation, this.params.transition);
+                    this.gl.uniform1f(this.directionLocation, this.params.direction);
                 },
                 onComplete: () => {
+                    // По завершении анимации обновляем текущую текстуру
                     this.gl.activeTexture(this.gl.TEXTURE0);
                     this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
                     this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, newImage);
@@ -315,6 +319,7 @@ class CircularGallery {
                     this.params.transition = 0;
                     this.isTransitioning = false;
                     
+                    // Очищаем следующую текстуру
                     this.gl.activeTexture(this.gl.TEXTURE1);
                     this.gl.bindTexture(this.gl.TEXTURE_2D, this.nextTexture);
                     this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, 1, 1, 0, this.gl.RGBA, this.gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
@@ -463,6 +468,7 @@ class CircularGallery {
         // Получаем локации униформ для перехода
         this.transitionLocation = this.gl.getUniformLocation(this.program, 'uTransition');
         this.textureNextLocation = this.gl.getUniformLocation(this.program, 'uTextureNext');
+        this.directionLocation = this.gl.getUniformLocation(this.program, 'uDirection');
     }
 
     resizeCanvas() {
@@ -495,6 +501,7 @@ class CircularGallery {
         this.gl.uniform2f(this.resolutionLocation, this.gl.canvas.width, this.gl.canvas.height);
         this.gl.uniform2f(this.mousePositionLocation, this.mousePosition.x, this.mousePosition.y);
         this.gl.uniform1f(this.transitionLocation, this.params.transition);
+        this.gl.uniform1f(this.directionLocation, this.params.direction);
 
         // Активируем и привязываем текстуры
         this.gl.activeTexture(this.gl.TEXTURE0);
@@ -620,26 +627,35 @@ function initializeSwiperGallery() {
                     console.log('[DEBUG] Swiper initialized');
                 },
 
-                slideChangeTransitionStart: function() {
-                    // Синхронизируем содержимое клонированных слайдов
-                    const $wrapperEl = this.$wrapperEl;
-                    const params = this.params;
-                    
-                    $wrapperEl.children(('.' + (params.slideClass) + '.' + (params.slideDuplicateClass)))
-                        .each(function() {
-                            const idx = this.getAttribute('data-swiper-slide-index');
-                            const originalSlide = $wrapperEl.children('.' + params.slideClass + '[data-swiper-slide-index="' + idx + '"]:not(.' + params.slideDuplicateClass + ')')[0];
-                            if (originalSlide) {
-                                this.innerHTML = originalSlide.innerHTML;
-                            }
-                        });
+                navigationNext: function() {
+                    console.log('[DEBUG] Navigation Next clicked');
+                    if (window.circularGalleries && window.circularGalleries[0]) {
+                        window.circularGalleries[0].params.direction = 1;
+                        console.log('[DEBUG] Direction set to:', window.circularGalleries[0].params.direction);
+                    }
                 },
 
-                slideChangeTransitionEnd: function() {
-                    // Убеждаемся, что мы на правильном слайде
-                    this.slideToLoop(this.realIndex, 0, false);
+                navigationPrev: function() {
+                    console.log('[DEBUG] Navigation Prev clicked');
+                    if (window.circularGalleries && window.circularGalleries[0]) {
+                        window.circularGalleries[0].params.direction = -1;
+                        console.log('[DEBUG] Direction set to:', window.circularGalleries[0].params.direction);
+                    }
                 },
-                
+
+                touchStart: function() {
+                    const startX = this.touches.startX;
+                    console.log('[DEBUG] Touch Start:', startX);
+                    
+                    this.on('touchMove', () => {
+                        if (window.circularGalleries && window.circularGalleries[0]) {
+                            const direction = this.touches.currentX - startX > 0 ? -1 : 1;
+                            window.circularGalleries[0].params.direction = direction;
+                            console.log('[DEBUG] Touch Move - Direction set to:', direction);
+                        }
+                    });
+                },
+
                 slideChange: function() {
                     console.log('[DEBUG] Swiper slideChange event fired');
                     const canvas = document.querySelector('[data-gallery="container"]');
@@ -647,10 +663,6 @@ function initializeSwiperGallery() {
                     // Получаем все слайды
                     const slides = Array.from(this.slides);
                     const totalSlides = slides.length;
-                    
-                    // Определяем правильный индекс слайда
-                    let correctIndex = this.realIndex;
-                    
                     const activeSlide = slides[this.activeIndex];
                     const img = activeSlide.querySelector('[data-gallery="image"]');
 
@@ -665,12 +677,17 @@ function initializeSwiperGallery() {
                             imageUrl: img.src,
                             realIndex: this.realIndex,
                             slideIndex: this.activeIndex,
-                            correctIndex: correctIndex,
-                            totalSlides: totalSlides
+                            totalSlides: totalSlides,
+                            direction: window.circularGalleries[0]?.params.direction,
+                            isBeginning: this.isBeginning,
+                            isEnd: this.isEnd
                         });
                         
                         const event = new CustomEvent('galleryImageChange', {
-                            detail: { imageUrl: img.src }
+                            detail: { 
+                                imageUrl: img.src,
+                                direction: window.circularGalleries[0]?.params.direction
+                            }
                         });
                         canvas.dispatchEvent(event);
                     }

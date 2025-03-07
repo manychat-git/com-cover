@@ -91,11 +91,6 @@
         .swiper-pagination-bullet-active {
             opacity: 1;
         }
-
-        /* Стили для панели отладки - удаляем */
-        .debug-panel {
-            display: none;
-        }
     </style>
 </head>
 <body>
@@ -132,14 +127,11 @@
             <canvas data-gallery="container" data-show-controls="false"></canvas>
         </div>
     </div>
-
-    <!-- Удаляем панель отладки -->
     
     <!-- Подключаем скрипты -->
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
     <script src="webflow-circular-gallery.js"></script>
-    <!-- Удаляем ссылку на скрипт отладочной панели -->
     
     <!-- Добавляем маркер для локального тестирования -->
     <script>
