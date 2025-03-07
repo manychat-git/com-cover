@@ -601,6 +601,10 @@ function initializeSwiperGallery() {
             spaceBetween: 0,
             loop: true,
             
+            // Добавляем observer для корректной работы с динамическим контентом
+            observer: true,
+            observeParents: true,
+            
             navigation: {
                 nextEl: '[data-gallery="next"]',
                 prevEl: '[data-gallery="prev"]'
@@ -612,23 +616,43 @@ function initializeSwiperGallery() {
             },
             
             on: {
+                init: function() {
+                    console.log('[DEBUG] Swiper initialized');
+                },
+
+                slideChangeTransitionStart: function() {
+                    // Синхронизируем содержимое клонированных слайдов с оригинальными
+                    // Это предотвращает проблему с неправильным порядком изображений во втором круге
+                    const $wrapperEl = this.$wrapperEl;
+                    const params = this.params;
+                    
+                    $wrapperEl.children(('.' + (params.slideClass) + '.' + (params.slideDuplicateClass)))
+                        .each(function() {
+                            const idx = this.getAttribute('data-swiper-slide-index');
+                            const originalSlide = $wrapperEl.children('.' + params.slideClass + '[data-swiper-slide-index="' + idx + '"]:not(.' + params.slideDuplicateClass + ')')[0];
+                            if (originalSlide) {
+                                this.innerHTML = originalSlide.innerHTML;
+                            }
+                        });
+                },
+
+                slideChangeTransitionEnd: function() {
+                    // После завершения перехода проверяем и корректируем позицию слайда
+                    // Это гарантирует, что мы всегда находимся на правильном слайде
+                    this.slideToLoop(this.realIndex, 0, false);
+                },
+                
                 slideChange: function() {
-                    console.log('[DEBUG] Swiper slideChange event fired');
                     const canvas = document.querySelector('[data-gallery="container"]');
-                    const activeSlide = this.slides[this.realIndex];
+                    const slides = Array.from(this.slides);
+                    const activeSlide = slides[this.activeIndex];
                     const img = activeSlide.querySelector('[data-gallery="image"]');
 
                     if (canvas && img) {
                         // Пропускаем плейсхолдер
                         if (img.src && img.src.includes('placeholder')) {
-                            console.log('[DEBUG] Skipping placeholder image in slideChange');
                             return;
                         }
-                        
-                        console.log('[DEBUG] Slide changed, updating image:', {
-                            imageUrl: img.src,
-                            realIndex: this.realIndex
-                        });
                         
                         const event = new CustomEvent('galleryImageChange', {
                             detail: { imageUrl: img.src }
