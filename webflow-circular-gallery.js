@@ -621,31 +621,33 @@ function initializeSwiperGallery() {
                 },
 
                 slideChangeTransitionStart: function() {
-                    // Синхронизируем содержимое клонированных слайдов с оригинальными
-                    // Это предотвращает проблему с неправильным порядком изображений во втором круге
-                    const $wrapperEl = this.$wrapperEl;
+                    // Синхронизируем содержимое клонированных слайдов
+                    const slides = this.slides;
                     const params = this.params;
                     
-                    $wrapperEl.children(('.' + (params.slideClass) + '.' + (params.slideDuplicateClass)))
-                        .each(function() {
-                            const idx = this.getAttribute('data-swiper-slide-index');
-                            const originalSlide = $wrapperEl.children('.' + params.slideClass + '[data-swiper-slide-index="' + idx + '"]:not(.' + params.slideDuplicateClass + ')')[0];
+                    for (let i = 0; i < slides.length; i++) {
+                        const slide = slides[i];
+                        if (slide.classList.contains(params.slideDuplicateClass)) {
+                            const idx = slide.getAttribute('data-swiper-slide-index');
+                            const originalSlide = Array.from(slides).find(s => 
+                                s.getAttribute('data-swiper-slide-index') === idx && 
+                                !s.classList.contains(params.slideDuplicateClass)
+                            );
                             if (originalSlide) {
-                                this.innerHTML = originalSlide.innerHTML;
+                                slide.innerHTML = originalSlide.innerHTML;
                             }
-                        });
+                        }
+                    }
                 },
 
                 slideChangeTransitionEnd: function() {
                     // После завершения перехода проверяем и корректируем позицию слайда
-                    // Это гарантирует, что мы всегда находимся на правильном слайде
                     this.slideToLoop(this.realIndex, 0, false);
                 },
                 
                 slideChange: function() {
                     const canvas = document.querySelector('[data-gallery="container"]');
-                    const slides = Array.from(this.slides);
-                    const activeSlide = slides[this.activeIndex];
+                    const activeSlide = this.slides[this.activeIndex];
                     const img = activeSlide.querySelector('[data-gallery="image"]');
 
                     if (canvas && img) {
