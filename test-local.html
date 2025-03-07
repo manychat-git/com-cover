@@ -130,55 +130,12 @@
     
     <!-- Подключаем скрипты -->
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.4/dist/gsap.min.js"></script>
-    <script src="webflow-circular-gallery.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+    <script src="webflow-circular-gallery.min.js"></script>
     
-    <!-- Инициализация Swiper -->
+    <!-- Добавляем маркер для локального тестирования -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Инициализация Swiper с кастомными классами
-            const swiper = new Swiper('[data-gallery="swiper"]', {
-                wrapperClass: 'swiper-cover_wrapper',
-                slideClass: 'swiper-cover_slide',
-                
-                slidesPerView: 1,
-                spaceBetween: 0,
-                loop: true,
-                
-                navigation: {
-                    nextEl: '[data-gallery="next"]',
-                    prevEl: '[data-gallery="prev"]'
-                },
-                
-                pagination: {
-                    el: '.swiper-pagination',
-                    clickable: true,
-                },
-                
-                on: {
-                    slideChange: function() {
-                        console.log('[DEBUG] Swiper slideChange event fired');
-                        const canvas = document.querySelector('[data-gallery="container"]');
-                        const activeSlide = this.slides[this.realIndex];
-                        const img = activeSlide.querySelector('[data-gallery="image"]');
-
-                        if (canvas && img) {
-                            console.log('[DEBUG] Slide changed, updating image:', {
-                                imageUrl: img.src,
-                                realIndex: this.realIndex
-                            });
-                            
-                            const event = new CustomEvent('galleryImageChange', {
-                                detail: { 
-                                    imageUrl: img.src
-                                }
-                            });
-                            canvas.dispatchEvent(event);
-                        }
-                    }
-                }
-            });
-        });
+        console.log('[DEBUG] Local test environment. Using initialization from JS file.');
     </script>
 </body>
 </html> 
