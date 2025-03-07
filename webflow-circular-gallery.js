@@ -612,6 +612,31 @@ function initializeSwiperGallery() {
             },
             
             on: {
+                slideChangeTransitionStart: function() {
+                    // Синхронизируем содержимое клонированных слайдов
+                    const slides = this.slides;
+                    const params = this.params;
+                    
+                    for (let i = 0; i < slides.length; i++) {
+                        const slide = slides[i];
+                        if (slide.classList.contains(params.slideDuplicateClass)) {
+                            const idx = slide.getAttribute('data-swiper-slide-index');
+                            const originalSlide = Array.from(slides).find(s => 
+                                s.getAttribute('data-swiper-slide-index') === idx && 
+                                !s.classList.contains(params.slideDuplicateClass)
+                            );
+                            if (originalSlide) {
+                                slide.innerHTML = originalSlide.innerHTML;
+                            }
+                        }
+                    }
+                },
+
+                slideChangeTransitionEnd: function() {
+                    // После завершения перехода проверяем и корректируем позицию слайда
+                    this.slideToLoop(this.realIndex, 0, false);
+                },
+
                 slideChange: function() {
                     console.log('[DEBUG] Swiper slideChange event fired');
                     const canvas = document.querySelector('[data-gallery="container"]');
