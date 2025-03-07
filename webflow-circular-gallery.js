@@ -14,14 +14,17 @@ const imageLoader = {
             return this.cache.get(url);
         }
         
-        return new Promise((resolve, reject) => {
+        return new Promise(resolve => {
             const img = new Image();
             img.crossOrigin = "anonymous";
             img.onload = () => {
                 this.cache.set(url, img);
                 resolve(img);
             };
-            img.onerror = reject;
+            img.onerror = () => {
+                console.error('Failed to load image:', url);
+                resolve(null);
+            };
             img.src = url;
         });
     }
@@ -244,14 +247,21 @@ class CircularGallery {
             newImageSrc: newImage?.src
         });
 
-        // Если это первое изображение и галерея уже инициализирована, пропускаем
-        if (this.isInitialized && !this.currentImage) {
-            console.log('[DEBUG] Skipping updateImage: gallery initialized but no current image');
+        if (!this.gl || !newImage) {
+            console.warn('GL context or image not available');
             return;
         }
 
-        if (!this.gl || !newImage) {
-            console.warn('GL context or image not available');
+        // Если это первое изображение или контекст не инициализирован
+        if (!this.isInitialized || !this.currentImage) {
+            console.log('[DEBUG] First image or not initialized, setting directly');
+            this.gl.activeTexture(this.gl.TEXTURE0);
+            this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, newImage);
+            this.currentImage = newImage;
+            this.isInitialized = true;
+            this.startTime = performance.now();
+            this.animate(this.startTime);
             return;
         }
 
@@ -267,6 +277,9 @@ class CircularGallery {
 
         this.isTransitioning = true;
 
+        // Используем программу перед установкой униформ
+        this.gl.useProgram(this.program);
+
         // Загружаем новое изображение в следующую текстуру
         this.gl.activeTexture(this.gl.TEXTURE1);
         this.gl.bindTexture(this.gl.TEXTURE_2D, this.nextTexture);
@@ -276,7 +289,6 @@ class CircularGallery {
         this.gl.uniform1i(this.textureNextLocation, 1);
 
         if (skipAnimation) {
-            // Мгновенное обновление без анимации
             this.gl.activeTexture(this.gl.TEXTURE0);
             this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
             this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, newImage);
@@ -292,10 +304,10 @@ class CircularGallery {
                 duration: 1.2,
                 ease: "power2.inOut",
                 onUpdate: () => {
+                    this.gl.useProgram(this.program);
                     this.gl.uniform1f(this.transitionLocation, this.params.transition);
                 },
                 onComplete: () => {
-                    // После завершения перехода обновляем основную текстуру
                     this.gl.activeTexture(this.gl.TEXTURE0);
                     this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
                     this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, newImage);
@@ -303,7 +315,6 @@ class CircularGallery {
                     this.params.transition = 0;
                     this.isTransitioning = false;
                     
-                    // Сбрасываем следующую текстуру
                     this.gl.activeTexture(this.gl.TEXTURE1);
                     this.gl.bindTexture(this.gl.TEXTURE_2D, this.nextTexture);
                     this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, 1, 1, 0, this.gl.RGBA, this.gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
@@ -313,27 +324,55 @@ class CircularGallery {
 
     async loadImage() {
         console.log('[DEBUG] loadImage() called');
-        const firstImage = document.querySelector('[data-gallery="image"]');
-        if (!firstImage) {
+        // Получаем все изображения галереи
+        const galleryImages = document.querySelectorAll('[data-gallery="image"]');
+        if (galleryImages.length === 0) {
             console.error('[DEBUG] No images found in gallery');
             return;
         }
 
-        try {
-            console.log('[DEBUG] Loading first image:', firstImage.src);
-            const img = await imageLoader.load(firstImage.src);
-            console.log('[DEBUG] First image loaded successfully');
-            this.currentImage = img;
-            this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
-            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, img);
-            this.isInitialized = true;
+        // Находим первое реальное изображение (не плейсхолдер)
+        let firstRealImage = null;
+        for (let i = 0; i < galleryImages.length; i++) {
+            const img = galleryImages[i];
+            // Проверяем, что это не плейсхолдер
+            if (img.src && !img.src.includes('placeholder')) {
+                firstRealImage = img;
+                break;
+            }
+        }
 
-            if (this.currentImage) {
+        // Если не нашли реальное изображение, используем первое доступное
+        if (!firstRealImage && galleryImages.length > 0) {
+            firstRealImage = galleryImages[0];
+        }
+
+        if (!firstRealImage) {
+            console.error('[DEBUG] No valid images found in gallery');
+            return;
+        }
+
+        try {
+            console.log('[DEBUG] Loading first real image:', firstRealImage.src);
+            const img = await imageLoader.load(firstRealImage.src);
+            
+            if (img) {
+                console.log('[DEBUG] First image loaded successfully');
+                this.currentImage = img;
+                this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+                this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, img);
+                this.isInitialized = true;
+
                 this.startTime = performance.now();
                 this.animate(this.startTime);
+            } else {
+                console.warn('[DEBUG] Failed to load first image, but continuing initialization');
+                this.isInitialized = true;
             }
         } catch (error) {
-            console.error('[DEBUG] Failed to load image:', error);
+            console.error('[DEBUG] Error during image loading:', error);
+            // Продолжаем работу даже при ошибке
+            this.isInitialized = true;
         }
     }
 
@@ -580,6 +619,12 @@ function initializeSwiperGallery() {
                     const img = activeSlide.querySelector('[data-gallery="image"]');
 
                     if (canvas && img) {
+                        // Пропускаем плейсхолдер
+                        if (img.src && img.src.includes('placeholder')) {
+                            console.log('[DEBUG] Skipping placeholder image in slideChange');
+                            return;
+                        }
+                        
                         console.log('[DEBUG] Slide changed, updating image:', {
                             imageUrl: img.src,
                             realIndex: this.realIndex
@@ -600,3 +645,34 @@ function initializeSwiperGallery() {
         console.error('Error initializing Swiper:', error);
     }
 }
+
+// Добавляем стиль для скрытия плейсхолдера
+(function() {
+    // Создаем стиль для скрытия плейсхолдера
+    const style = document.createElement('style');
+    style.textContent = `
+        img[src*="placeholder.60f9b1840c.svg"] {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            overflow: hidden !important;
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Добавляем обработчик ошибок для всех изображений
+    window.addEventListener('DOMContentLoaded', () => {
+        const images = document.querySelectorAll('[data-gallery="image"]');
+        images.forEach(img => {
+            img.onerror = function() {
+                // Если это плейсхолдер, игнорируем ошибку
+                if (this.src && this.src.includes('placeholder')) {
+                    console.log('[DEBUG] Ignoring placeholder image error');
+                    return true;
+                }
+            };
+        });
+    });
+})();
