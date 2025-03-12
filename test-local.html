@@ -37,6 +37,13 @@
             z-index: 2;
         }
         
+        /* Отключаем pointer-events на canvas для мобильных устройств */
+        @media (max-width: 768px) {
+            canvas {
+                pointer-events: none;
+            }
+        }
+        
         /* Стили для Swiper с кастомными классами */
         .swiper-cover {
             width: 100%;
@@ -132,7 +139,6 @@
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
     <script src="webflow-circular-gallery.min.js"></script>
-    <script src="gallery-debug.js"></script>
     
     <!-- Добавляем маркер для локального тестирования -->
     <script>
