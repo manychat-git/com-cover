@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circular Gallery Test</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: #000;
+            overflow: hidden;
+        }
+        .container {
+            width: 100%;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+        }
+        .gallery-container {
+            width: calc(100% - 40px);
+            height: calc(100vh - 40px);
+            margin: 20px;
+            background-color: #000;
+            overflow: hidden;
+            position: relative;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+        }
+        
+        /* Отключаем pointer-events на canvas для мобильных устройств */
+        @media (max-width: 768px) {
+            canvas {
+                pointer-events: none;
+            }
+        }
+        
+        /* Стили для Swiper с кастомными классами */
+        .swiper-cover {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        .swiper-cover_wrapper {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            transition-property: transform;
+            box-sizing: content-box;
+        }
+        .swiper-cover_slide {
+            flex-shrink: 0;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        
+        /* Стили для изображений внутри слайдов */
+        .swiper-cover_slide img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            display: block;
+        }
+        
+        /* Стили для навигации */
+        .swiper-button-next,
+        .swiper-button-prev {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10;
+            cursor: pointer;
+            color: white;
+        }
+        .swiper-pagination {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            z-index: 10;
+        }
+        .swiper-pagination-bullet {
+            background: white;
+            opacity: 0.5;
+        }
+        .swiper-pagination-bullet-active {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="gallery-container">
+            <!-- Swiper с кастомными классами -->
+            <div class="swiper-cover" data-gallery="swiper">
+                <div class="swiper-cover_wrapper">
+                    <!-- Слайды -->
+                    <div class="swiper-cover_slide">
+                        <img src="assets/com-1-fin.jpg" data-gallery="image" style="display: none;">
+                    </div>
+                    <div class="swiper-cover_slide">
+                        <img src="assets/com-2-fin.jpg" data-gallery="image" style="display: none;">
+                    </div>
+                    <div class="swiper-cover_slide">
+                        <img src="assets/com-3-fin.jpg" data-gallery="image" style="display: none;">
+                    </div>
+                    <div class="swiper-cover_slide">
+                        <img src="assets/com-4-fin.jpg" data-gallery="image" style="display: none;">
+                    </div>
+                    <div class="swiper-cover_slide">
+                        <img src="assets/com-5-fin.jpg" data-gallery="image" style="display: none;">
+                    </div>
+                </div>
+                
+                <!-- Навигация -->
+                <div class="swiper-button-prev" data-gallery="prev"></div>
+                <div class="swiper-button-next" data-gallery="next"></div>
+                <div class="swiper-pagination"></div>
+            </div>
+            
+            <!-- Canvas для WebGL эффектов -->
+            <canvas data-gallery="container" data-show-controls="false"></canvas>
+        </div>
+    </div>
+    
+    <!-- Подключаем скрипты -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+    <script src="webflow-circular-gallery-rev.min.js"></script>
+    
+    <!-- Добавляем маркер для локального тестирования -->
+    <script>
+        console.log('[DEBUG] Local test environment. Using initialization from JS file.');
+    </script>
+</body>
+</html> 
