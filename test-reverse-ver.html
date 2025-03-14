@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circular Gallery Test</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: #000;
+            overflow: hidden;
+        }
+        .container {
+            width: 100%;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+        }
+        .gallery-container {
+            width: calc(100% - 40px);
+            height: calc(100vh - 40px);
+            margin: 20px;
+            background-color: #000;
+            overflow: hidden;
+            position: relative;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+        }
+        
+        /* Disable pointer-events on canvas for mobile devices */
+        @media (max-width: 768px) {
+            canvas {
+                pointer-events: none;
+            }
+        }
+        
+        /* Swiper custom styles */
+        .swiper-cover {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            z-index: 10;
+        }
+        .swiper-cover_wrapper {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            transition-property: transform;
+            box-sizing: content-box;
+        }
+        .swiper-cover_slide {
+            flex-shrink: 0;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        
+        /* Image styles */
+        .swiper-cover_slide img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            display: block;
+        }
+        
+        /* Navigation styles */
+        .swiper-button-next,
+        .swiper-button-prev {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10;
+            cursor: pointer;
+            color: white;
+        }
+        .swiper-pagination {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            z-index: 10;
+        }
+        .swiper-pagination-bullet {
+            background: white;
+            opacity: 0.5;
+        }
+        .swiper-pagination-bullet-active {
+            opacity: 1;
+        }
+        
+        /* Navigation container styles */
+        [data-gallery="swiper-nav"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 15;
+            pointer-events: none;
+        }
+        [data-gallery="swiper-nav"] > * {
+            pointer-events: auto;
+        }
+        
+        /* Text element styles */
+        .gallery-text-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            text-align: center;
+            color: white;
+            width: 80%;
+            max-width: 240px;
+            pointer-events: none;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0px;
+        }
+        
+        [data-gallery-text="title"] {
+            font-size: 1rem;
+            font-weight: 400;
+            margin-bottom: 0.5rem;
+        }
+        
+        [data-gallery-text="author"] {
+            font-size: 1rem;
+            font-weight: 400;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="gallery-container">
+            <!-- Swiper with custom classes -->
+            <div class="swiper-cover" data-gallery="swiper">
+                <div class="swiper-cover_wrapper">
+                    <!-- Slides -->
+                    <div class="swiper-cover_slide">
+                        <img src="assets/com-5-fin-min.jpg" data-gallery="image" style="display: none;">
+                        <div class="gallery-text-container">
+                            <div data-gallery-text="title">Creators: More ‘Brand Love Triangles’ Are Coming</div>
+                            <div data-gallery-text="author">Alex Morgan</div>
+                        </div>
+                    </div>
+                    <div class="swiper-cover_slide">
+                        <img src="assets/com-3-fin-min.jpg" data-gallery="image" style="display: none;">
+                        <div class="gallery-text-container">
+                            <div data-gallery-text="title">Digital Horizons</div>
+                            <div data-gallery-text="author">Emma Stone</div>
+                        </div>
+                    </div>
+                    <div class="swiper-cover_slide">
+                        <img src="assets/com-4-fin-min.jpg" data-gallery="image" style="display: none;">
+                        <div class="gallery-text-container">
+                            <div data-gallery-text="title">Parallel Worlds</div>
+                            <div data-gallery-text="author">David Walker</div>
+                        </div>
+                    </div>
+                    <div class="swiper-cover_slide">
+                        <img src="assets/r&w-min.jpg" data-gallery="image" style="display: none;">
+                        <div class="gallery-text-container">
+                            <div data-gallery-text="title">Contrast Symphony</div>
+                            <div data-gallery-text="author">Maria Johnson</div>
+                        </div>
+                    </div>
+                    <div class="swiper-cover_slide">
+                        <img src="assets/tarot-min.jpg" data-gallery="image" style="display: none;">
+                        <div class="gallery-text-container">
+                            <div data-gallery-text="title">Mystic Cards</div>
+                            <div data-gallery-text="author">Sam Taylor</div>
+                        </div>
+                    </div>
+                    <div class="swiper-cover_slide">
+                        <img src="assets/ed-min.jpg" data-gallery="image" style="display: none;">
+                        <div class="gallery-text-container">
+                            <div data-gallery-text="title">Future Education</div>
+                            <div data-gallery-text="author">Anna Peters</div>
+                        </div>
+                    </div>
+                    <div class="swiper-cover_slide">
+                        <img src="assets/r&l-min.jpg" data-gallery="image" style="display: none;">
+                        <div class="gallery-text-container">
+                            <div data-gallery-text="title">Light & Shadow</div>
+                            <div data-gallery-text="author">Igor Bright</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation moved outside of swiper -->
+            <div data-gallery="swiper-nav">
+                <div class="swiper-button-prev" data-gallery="prev"></div>
+                <div class="swiper-button-next" data-gallery="next"></div>
+                <div class="swiper-pagination"></div>
+            </div>
+            
+            <!-- Canvas for WebGL effects -->
+            <canvas data-gallery="container" data-show-controls="false"></canvas>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+    <script src="webflow-circular-gallery-rev-ver.min.js"></script>
+    
+    <script>
+        console.log('[DEBUG] Local test environment. No text animation script.');
+    </script>
+</body>
+</html> 

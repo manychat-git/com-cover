@@ -1,44 +1,6 @@
-# Circular Gallery
+# Chromatic Aberration Gallery
 
-A WebGL-based circular gallery with smooth transitions and effects.
-
-## Files
-
-### Latest Version (v7.2.0)
-- [webflow-circular-gallery-rev.min.js](https://raw.githubusercontent.com/manychat-git/com-cover/v7.2.0/webflow-circular-gallery-rev.min.js) - Gallery with reversed animation direction for navigation buttons
-- [webflow-circular-gallery.min.js](https://raw.githubusercontent.com/manychat-git/com-cover/v7.2.0/webflow-circular-gallery.min.js) - Standard gallery version
-
-### Previous Versions
-- [v7.1.0](https://github.com/manychat-git/com-cover/releases/tag/v7.1.0)
-- [v7.0.0](https://github.com/manychat-git/com-cover/releases/tag/v7.0.0)
-- [v6.1.0](https://github.com/manychat-git/com-cover/releases/tag/v6.1.0)
-- [v6.0.0](https://github.com/manychat-git/com-cover/releases/tag/v6.0.0)
-- [v5.0.0](https://github.com/manychat-git/com-cover/releases/tag/v5.0.0)
-- [v4.0.2](https://github.com/manychat-git/com-cover/releases/tag/v4.0.2)
-- [v4.0.1](https://github.com/manychat-git/com-cover/releases/tag/v4.0.1)
-- [v4.0.0](https://github.com/manychat-git/com-cover/releases/tag/v4.0.0)
-- [v3.0.0](https://github.com/manychat-git/com-cover/releases/tag/v3.0.0)
-- [v2.0.8](https://github.com/manychat-git/com-cover/releases/tag/v2.0.8)
-- [v2.0.7](https://github.com/manychat-git/com-cover/releases/tag/v2.0.7)
-- [v2.0.6](https://github.com/manychat-git/com-cover/releases/tag/v2.0.6)
-- [v2.0.5](https://github.com/manychat-git/com-cover/releases/tag/v2.0.5)
-- [v2.0.4](https://github.com/manychat-git/com-cover/releases/tag/v2.0.4)
-- [v2.0.3](https://github.com/manychat-git/com-cover/releases/tag/v2.0.3)
-- [v2.0.2](https://github.com/manychat-git/com-cover/releases/tag/v2.0.2)
-- [v2.0.1](https://github.com/manychat-git/com-cover/releases/tag/v2.0.1)
-- [v2.0.0](https://github.com/manychat-git/com-cover/releases/tag/v2.0.0)
-- [v1.8.0](https://github.com/manychat-git/com-cover/releases/tag/v1.8.0)
-- [v1.7.1](https://github.com/manychat-git/com-cover/releases/tag/v1.7.1)
-- [v1.7.0](https://github.com/manychat-git/com-cover/releases/tag/v1.7.0)
-- [v1.6.0](https://github.com/manychat-git/com-cover/releases/tag/v1.6.0)
-- [v1.5.2](https://github.com/manychat-git/com-cover/releases/tag/v1.5.2)
-- [v1.5.1](https://github.com/manychat-git/com-cover/releases/tag/v1.5.1)
-- [v1.5.0](https://github.com/manychat-git/com-cover/releases/tag/v1.5.0)
-- [v1.4.0](https://github.com/manychat-git/com-cover/releases/tag/v1.4.0)
-- [v1.3.0](https://github.com/manychat-git/com-cover/releases/tag/v1.3.0)
-- [v1.2.0](https://github.com/manychat-git/com-cover/releases/tag/v1.2.0)
-- [v1.1.0](https://github.com/manychat-git/com-cover/releases/tag/v1.1.0)
-- [v1.0.0](https://github.com/manychat-git/com-cover/releases/tag/v1.0.0)
+An interactive WebGL-based image viewer with chromatic aberration and distortion effects. Upload your images and see them transformed with a unique visual style.
 
 ## Features
 
