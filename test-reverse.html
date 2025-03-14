@@ -100,6 +100,20 @@
             opacity: 1;
         }
         
+        /* Navigation container styles */
+        [data-gallery="swiper-nav"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 15;
+            pointer-events: none;
+        }
+        [data-gallery="swiper-nav"] > * {
+            pointer-events: auto;
+        }
+        
         /* Text element styles */
         .gallery-text-container {
             position: absolute;
@@ -110,7 +124,7 @@
             text-align: center;
             color: white;
             width: 80%;
-            max-width: 800px;
+            max-width: 240px;
             pointer-events: none;
             font-family: 'JetBrains Mono', monospace;
             text-transform: uppercase;
@@ -139,14 +153,14 @@
                     <div class="swiper-cover_slide">
                         <img src="assets/com-5-fin-min.jpg" data-gallery="image" style="display: none;">
                         <div class="gallery-text-container">
-                            <div data-gallery-text="title">Digital Horizons</div>
+                            <div data-gallery-text="title">Creators: More ‘Brand Love Triangles’ Are Coming</div>
                             <div data-gallery-text="author">Alex Morgan</div>
                         </div>
                     </div>
                     <div class="swiper-cover_slide">
                         <img src="assets/com-3-fin-min.jpg" data-gallery="image" style="display: none;">
                         <div class="gallery-text-container">
-                            <div data-gallery-text="title">Through Time</div>
+                            <div data-gallery-text="title">Digital Horizons</div>
                             <div data-gallery-text="author">Emma Stone</div>
                         </div>
                     </div>
@@ -186,8 +200,10 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- Navigation -->
+            </div>
+            
+            <!-- Navigation moved outside of swiper -->
+            <div data-gallery="swiper-nav">
                 <div class="swiper-button-prev" data-gallery="prev"></div>
                 <div class="swiper-button-next" data-gallery="next"></div>
                 <div class="swiper-pagination"></div>
