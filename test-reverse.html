@@ -37,18 +37,19 @@
             z-index: 2;
         }
         
-        /* Отключаем pointer-events на canvas для мобильных устройств */
+        /* Disable pointer-events on canvas for mobile devices */
         @media (max-width: 768px) {
             canvas {
                 pointer-events: none;
             }
         }
         
-        /* Стили для Swiper с кастомными классами */
+        /* Swiper custom styles */
         .swiper-cover {
             width: 100%;
             height: 100%;
             position: relative;
+            z-index: 10;
         }
         .swiper-cover_wrapper {
             display: flex;
@@ -64,7 +65,7 @@
             position: relative;
         }
         
-        /* Стили для изображений внутри слайдов */
+        /* Image styles */
         .swiper-cover_slide img {
             width: 100%;
             height: 100%;
@@ -73,7 +74,7 @@
             display: block;
         }
         
-        /* Стили для навигации */
+        /* Navigation styles */
         .swiper-button-next,
         .swiper-button-prev {
             position: absolute;
@@ -98,57 +99,112 @@
         .swiper-pagination-bullet-active {
             opacity: 1;
         }
+        
+        /* Text element styles */
+        .gallery-text-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            text-align: center;
+            color: white;
+            width: 80%;
+            max-width: 800px;
+            pointer-events: none;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0px;
+        }
+        
+        [data-gallery-text="title"] {
+            font-size: 1rem;
+            font-weight: 400;
+            margin-bottom: 0.5rem;
+        }
+        
+        [data-gallery-text="author"] {
+            font-size: 1rem;
+            font-weight: 400;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="gallery-container">
-            <!-- Swiper с кастомными классами -->
+            <!-- Swiper with custom classes -->
             <div class="swiper-cover" data-gallery="swiper">
                 <div class="swiper-cover_wrapper">
-                    <!-- Слайды -->
+                    <!-- Slides -->
                     <div class="swiper-cover_slide">
                         <img src="assets/com-5-fin-min.jpg" data-gallery="image" style="display: none;">
+                        <div class="gallery-text-container">
+                            <div data-gallery-text="title">Digital Horizons</div>
+                            <div data-gallery-text="author">Alex Morgan</div>
+                        </div>
                     </div>
                     <div class="swiper-cover_slide">
                         <img src="assets/com-3-fin-min.jpg" data-gallery="image" style="display: none;">
+                        <div class="gallery-text-container">
+                            <div data-gallery-text="title">Through Time</div>
+                            <div data-gallery-text="author">Emma Stone</div>
+                        </div>
                     </div>
                     <div class="swiper-cover_slide">
                         <img src="assets/com-4-fin-min.jpg" data-gallery="image" style="display: none;">
+                        <div class="gallery-text-container">
+                            <div data-gallery-text="title">Parallel Worlds</div>
+                            <div data-gallery-text="author">David Walker</div>
+                        </div>
                     </div>
                     <div class="swiper-cover_slide">
                         <img src="assets/r&w-min.jpg" data-gallery="image" style="display: none;">
+                        <div class="gallery-text-container">
+                            <div data-gallery-text="title">Contrast Symphony</div>
+                            <div data-gallery-text="author">Maria Johnson</div>
+                        </div>
                     </div>
                     <div class="swiper-cover_slide">
                         <img src="assets/tarot-min.jpg" data-gallery="image" style="display: none;">
+                        <div class="gallery-text-container">
+                            <div data-gallery-text="title">Mystic Cards</div>
+                            <div data-gallery-text="author">Sam Taylor</div>
+                        </div>
                     </div>
                     <div class="swiper-cover_slide">
                         <img src="assets/ed-min.jpg" data-gallery="image" style="display: none;">
+                        <div class="gallery-text-container">
+                            <div data-gallery-text="title">Future Education</div>
+                            <div data-gallery-text="author">Anna Peters</div>
+                        </div>
                     </div>
                     <div class="swiper-cover_slide">
                         <img src="assets/r&l-min.jpg" data-gallery="image" style="display: none;">
+                        <div class="gallery-text-container">
+                            <div data-gallery-text="title">Light & Shadow</div>
+                            <div data-gallery-text="author">Igor Bright</div>
+                        </div>
                     </div>
                 </div>
                 
-                <!-- Навигация -->
+                <!-- Navigation -->
                 <div class="swiper-button-prev" data-gallery="prev"></div>
                 <div class="swiper-button-next" data-gallery="next"></div>
                 <div class="swiper-pagination"></div>
             </div>
             
-            <!-- Canvas для WebGL эффектов -->
+            <!-- Canvas for WebGL effects -->
             <canvas data-gallery="container" data-show-controls="false"></canvas>
         </div>
     </div>
     
-    <!-- Подключаем скрипты -->
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
     <script src="webflow-circular-gallery-rev.min.js"></script>
     
-    <!-- Добавляем маркер для локального тестирования -->
     <script>
-        console.log('[DEBUG] Local test environment. Using initialization from JS file.');
+        console.log('[DEBUG] Local test environment. No text animation script.');
     </script>
 </body>
 </html> 
