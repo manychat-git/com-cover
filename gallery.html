@@ -132,14 +132,15 @@
         }
         
         /* Pagination styles */
-        [data-gallery="swiper-pag"] .swiper-pagination {
+        [data-gallery="swiper-pag"] [data-gallery="pagination"] {
             position: relative !important;
             display: flex;
             justify-content: center;
             gap: 8px;
             margin: 0;
         }
-        [data-gallery="swiper-pag"] .swiper-pagination-bullet {
+        
+        [data-gallery="swiper-pag"] [data-gallery="bullet"] {
             flex: none;
             width: 32px;
             height: 4px;
@@ -151,7 +152,8 @@
             margin: 0 !important;
             cursor: pointer;
         }
-        .swiper-pagination-bullet::after {
+        
+        [data-gallery="bullet"]::after {
             content: '';
             position: absolute;
             top: 0;
@@ -161,14 +163,17 @@
             background: white;
             transition: width 0.1s linear;
         }
-        .swiper-pagination-bullet-active {
+        
+        [data-gallery="bullet"].swiper-pagination-bullet-active {
             opacity: 1;
         }
-        .swiper-pagination-bullet-active::after {
+        
+        [data-gallery="bullet"].swiper-pagination-bullet-active::after {
             width: 100%;
             transition: width 0.3s linear;
         }
-        .swiper-pagination-bullet.filled::after {
+        
+        [data-gallery="bullet"].filled::after {
             width: 100%;
         }
         
@@ -268,7 +273,7 @@
             
             <!-- Pagination container -->
             <div data-gallery="swiper-pag">
-                <div class="swiper-pagination"></div>
+                <div data-gallery="pagination"></div>
             </div>
             
             <!-- Canvas for WebGL effects -->
@@ -279,6 +284,7 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+    <script src="https://mcr2.us/gsap/SplitText.min.js"></script>
     <script src="webflow-gallery.min.js"></script>
     
     <script>
