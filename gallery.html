@@ -132,15 +132,14 @@
         }
         
         /* Pagination styles */
-        [data-gallery="swiper-pag"] [data-gallery="pagination"] {
+        [data-gallery="swiper-pag"] .swiper-pagination {
             position: relative !important;
             display: flex;
             justify-content: center;
             gap: 8px;
             margin: 0;
         }
-        
-        [data-gallery="swiper-pag"] [data-gallery="bullet"] {
+        [data-gallery="swiper-pag"] .swiper-pagination-bullet {
             flex: none;
             width: 32px;
             height: 4px;
@@ -152,8 +151,7 @@
             margin: 0 !important;
             cursor: pointer;
         }
-        
-        [data-gallery="bullet"]::after {
+        .swiper-pagination-bullet::after {
             content: '';
             position: absolute;
             top: 0;
@@ -163,17 +161,14 @@
             background: white;
             transition: width 0.1s linear;
         }
-        
-        [data-gallery="bullet"].swiper-pagination-bullet-active {
+        .swiper-pagination-bullet-active {
             opacity: 1;
         }
-        
-        [data-gallery="bullet"].swiper-pagination-bullet-active::after {
+        .swiper-pagination-bullet-active::after {
             width: 100%;
             transition: width 0.3s linear;
         }
-        
-        [data-gallery="bullet"].filled::after {
+        .swiper-pagination-bullet.filled::after {
             width: 100%;
         }
         
@@ -273,7 +268,7 @@
             
             <!-- Pagination container -->
             <div data-gallery="swiper-pag">
-                <div data-gallery="pagination"></div>
+                <div class="swiper-pagination"></div>
             </div>
             
             <!-- Canvas for WebGL effects -->
